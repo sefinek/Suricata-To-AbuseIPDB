@@ -22,3 +22,7 @@ exports.MAIN = {
 	DISCORD_WEBHOOKS_URL: '',
 	DISCORD_WEBHOOK_USERNAME: 'SERVER_ID', // The name displayed as the message author on Discord. If you don't want to set it, leave the value as null. Providing SERVER_ID as a string will display this.MAIN.SERVER_ID.
 };
+
+// const serverId = this.MAIN.SERVER_ID ? `on ${this.MAIN.SERVER_ID} ` : '';
+exports.REPORT_COMMENT = ({ signature, srcIp, dpt, proto, id }, fullLog) =>
+	`Suricata (signature ${id}): ${signature || 'Unknown Signature'}]`;

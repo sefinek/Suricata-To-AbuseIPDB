@@ -2,7 +2,9 @@
 //                     https://sefinek.net
 
 const fs = require('node:fs');
-const chokidar = require('chokidar');
+const TailFile = require('@logdna/tail-file');
+const split2 = require('split2');
+// const chokidar = require('chokidar');
 const { parseTimestamp } = require('ufw-log-parser');
 const axios = require('./scripts/services/axios.js');
 const { saveBufferToFile, loadBufferFromFile, sendBulkReport, BULK_REPORT_BUFFER } = require('./scripts/services/bulk.js');
@@ -46,7 +48,7 @@ const checkRateLimit = async () => {
 	}
 };
 
-const reportIp = async ({ srcIp, dpt = 'N/A', proto = 'N/A', id, timestamp }, categories, comment) => {
+const reportIp = async ({ srcIp, dpt = 'N/A', proto = 'N/A', id, timestamp }, categories = '14', comment) => {
 	if (!srcIp) return log('Missing source IP (srcIp)', 3);
 
 	await checkRateLimit();
@@ -95,32 +97,42 @@ const reportIp = async ({ srcIp, dpt = 'N/A', proto = 'N/A', id, timestamp }, ca
 };
 
 const processLogLine = async (line, test = false) => {
-	if (!line.includes('"event_type":"alert"')) return log(`Ignoring invalid line: ${line}`, 2);
+	if (!line.includes('"event_type":"alert"') && (line.startsWith('{') && line.endsWith('}'))) return log(`Ignoring invalid line: ${line}`, 2);
 
-	const json = JSON.parse(line);
+	let json;
+	try {
+		json = JSON.parse(line);
+	} catch (err) {
+		log(`Invalid JSON: ${err.message}:`, 3);
+		return log(`Line: ${line}:`, 3);
+	}
+
 	const srcIp = json.src_ip;
 	if (!srcIp) return log(`Missing SRC in the alert: ${line}`, 3);
-
-	const proto = json.proto || 'N/A';
-	const dpt = json.dest_port || 'N/A';
-	const id = json.alert?.signature_id || 'N/A';
 
 	const ips = getServerIPs();
 	if (!Array.isArray(ips)) return log(`For some reason, 'ips' from 'getServerIPs()' is not an array. Received: ${ips}`, 3, true);
 
-	if (ips.includes(srcIp)) return log(`Ignoring own IP address: PROTO=${proto?.toLowerCase()} SRC=${srcIp} DPT=${dpt} SIGNATURE_ID=${id}`, 0, true);
-	if (isLocalIP(srcIp)) return log(`Ignoring local IP address: PROTO=${proto?.toLowerCase()} SRC=${srcIp} DPT=${dpt} SIGNATURE_ID=${id}`, 0, true);
+	const destIp = json.dest_ip;
+	let ipToReport = srcIp;
+	if (ips.includes(srcIp) || isLocalIP(srcIp)) {
+		if (ips.includes(destIp) || isLocalIP(destIp)) return log(`Both SRC=${srcIp} and DEST=${destIp} are local or own, ignoring alert`, 0, true);
+		ipToReport = destIp;
+	}
+
+	const proto = json.proto || 'N/A';
+	const id = json.alert?.signature_id || 'N/A';
+	const dpt = json.dest_port || 'N/A';
 	if (proto === 'UDP') {
-		if (EXTENDED_LOGS) log(`Skipping UDP traffic: SRC=${srcIp} DPT=${dpt} SIGNATURE_ID=${id}`);
+		if (EXTENDED_LOGS) log(`Skipping UDP traffic: IP=${ipToReport} DPT=${dpt} SIGNATURE_ID=${id}`);
 		return;
 	}
 
-	const timestamp = parseTimestamp(json.timestamp);
-	const data = { srcIp, dpt, proto, id, timestamp };
+	const data = { srcIp: ipToReport, dpt, proto, id, signature: json.alert?.signature || 'N/A', timestamp: parseTimestamp(json.timestamp) };
 	if (test) return data;
 
-	if (isIPReportedRecently(srcIp)) {
-		const lastReportedTime = reportedIPs.get(srcIp);
+	if (isIPReportedRecently(ipToReport)) {
+		const lastReportedTime = reportedIPs.get(ipToReport);
 		const elapsedTime = Math.floor(Date.now() / 1000 - lastReportedTime);
 		const days = Math.floor(elapsedTime / 86400);
 		const hours = Math.floor((elapsedTime % 86400) / 3600);
@@ -133,15 +145,13 @@ const processLogLine = async (line, test = false) => {
 			(seconds || (!days && !hours && !minutes)) && `${seconds}s`,
 		].filter(Boolean).join(' ');
 
-		if (EXTENDED_LOGS) log(`${srcIp} was last reported on ${new Date(lastReportedTime * 1000).toLocaleString()} (${timeAgo} ago)`);
+		if (EXTENDED_LOGS) log(`${ipToReport} was last reported on ${new Date(lastReportedTime * 1000).toLocaleString()} (${timeAgo} ago)`);
 		return;
 	}
 
-	const categories = config.DETERMINE_CATEGORIES(data);
-	const comment = config.REPORT_COMMENT(data, line);
-
-	if (await reportIp(data, categories, comment)) {
-		markIPAsReported(srcIp);
+	const comment = config.REPORT_COMMENT(data, json);
+	if (await reportIp(data, undefined, comment)) {
+		markIPAsReported(ipToReport);
 		await saveReportedIPs();
 	}
 };
@@ -177,21 +187,15 @@ const processLogLine = async (line, test = false) => {
 	}
 
 	// Watch
-	fileOffset = fs.statSync(SURICATA_EVE_FILE).size;
-	chokidar.watch(SURICATA_EVE_FILE, { persistent: true, ignoreInitial: true })
-		.on('change', path => {
-			const stats = fs.statSync(path);
-			if (stats.size < fileOffset) {
-				fileOffset = 0;
-				log('The file has been truncated, and the offset has been reset');
-			}
+	const tail = new TailFile(SURICATA_EVE_FILE);
+	tail
+		.on('tail_error', err => log(err, 3))
+		.start()
+		.catch(err => log(err, 3));
 
-			fs.createReadStream(path, { start: fileOffset, encoding: 'utf8' }).on('data', chunk => {
-				chunk.split('\n').filter(line => line.trim()).forEach(processLogLine);
-			}).on('end', () => {
-				fileOffset = stats.size;
-			});
-		});
+	tail
+		.pipe(split2())
+		.on('data', line => processLogLine(line));
 
 	// Summaries
 	if (DISCORD_WEBHOOKS_ENABLED && DISCORD_WEBHOOKS_URL) await require('./scripts/services/summaries.js')();
