@@ -2,8 +2,8 @@ exports.MAIN = {
 	// Server
 	SURICATA_EVE_FILE: '/var/log/suricata/eve.json',
 	CACHE_FILE: './tmp/suricata-abuseipdb-reporter.cache',
-	SERVER_ID: 'development',
-	EXTENDED_LOGS: false,
+	SERVER_ID: null, // The server name that will be visible in reports (e.g., homeserver1, de1). Leave as null if you don't want to define it.
+	EXTENDED_LOGS: false, // Specifies whether the script should display additional information in the logs.
 	MIN_ALERT_SEVERITY: 2, // The priority level from which the script should start reporting. Default: <=2
 
 	// Network
