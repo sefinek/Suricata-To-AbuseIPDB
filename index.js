@@ -3,6 +3,7 @@
 
 const fs = require('node:fs');
 const chokidar = require('chokidar');
+const { parseTimestamp } = require('ufw-log-parser');
 const axios = require('./scripts/services/axios.js');
 const { saveBufferToFile, loadBufferFromFile, sendBulkReport, BULK_REPORT_BUFFER } = require('./scripts/services/bulk.js');
 const { reportedIPs, loadReportedIPs, saveReportedIPs, isIPReportedRecently, markIPAsReported } = require('./scripts/services/cache.js');
@@ -12,7 +13,7 @@ const sendWebhook = require('./scripts/services/discordWebhooks.js');
 const isLocalIP = require('./scripts/isLocalIP.js');
 const log = require('./scripts/log.js');
 const config = require('./config.js');
-const { UFW_LOG_FILE, ABUSEIPDB_API_KEY, SERVER_ID, EXTENDED_LOGS, AUTO_UPDATE_ENABLED, AUTO_UPDATE_SCHEDULE, DISCORD_WEBHOOKS_ENABLED, DISCORD_WEBHOOKS_URL } = config.MAIN;
+const { SURICATA_EVE_FILE, ABUSEIPDB_API_KEY, SERVER_ID, EXTENDED_LOGS, AUTO_UPDATE_ENABLED, AUTO_UPDATE_SCHEDULE, DISCORD_WEBHOOKS_ENABLED, DISCORD_WEBHOOKS_URL } = config.MAIN;
 
 const ABUSE_STATE = { isLimited: false, isBuffering: false, sentBulk: false };
 const RATE_LIMIT_LOG_INTERVAL = 10 * 60 * 1000;
@@ -94,22 +95,28 @@ const reportIp = async ({ srcIp, dpt = 'N/A', proto = 'N/A', id, timestamp }, ca
 };
 
 const processLogLine = async (line, test = false) => {
-	if (!line.includes('[UFW BLOCK]')) return log(`Ignoring invalid line: ${line}`, 2);
+	if (!line.includes('"event_type":"alert"')) return log(`Ignoring invalid line: ${line}`, 2);
 
-	const data = parseUfwLog(line);
-	const { srcIp, proto, dpt } = data;
-	if (!srcIp) return log(`Missing SRC in the log line: ${line}`, 3);
+	const json = JSON.parse(line);
+	const srcIp = json.src_ip;
+	if (!srcIp) return log(`Missing SRC in the alert: ${line}`, 3);
+
+	const proto = json.proto || 'N/A';
+	const dpt = json.dest_port || 'N/A';
+	const id = json.alert?.signature_id || 'N/A';
 
 	const ips = getServerIPs();
 	if (!Array.isArray(ips)) return log(`For some reason, 'ips' from 'getServerIPs()' is not an array. Received: ${ips}`, 3, true);
 
-	if (ips.includes(srcIp)) return log(`Ignoring own IP address: PROTO=${proto?.toLowerCase()} SRC=${srcIp} DPT=${dpt} ID=${data.id}`, 0, true);
-	if (isLocalIP(srcIp)) return log(`Ignoring local IP address: PROTO=${proto?.toLowerCase()} SRC=${srcIp} DPT=${dpt} ID=${data.id}`, 0, true);
+	if (ips.includes(srcIp)) return log(`Ignoring own IP address: PROTO=${proto?.toLowerCase()} SRC=${srcIp} DPT=${dpt} SIGNATURE_ID=${id}`, 0, true);
+	if (isLocalIP(srcIp)) return log(`Ignoring local IP address: PROTO=${proto?.toLowerCase()} SRC=${srcIp} DPT=${dpt} SIGNATURE_ID=${id}`, 0, true);
 	if (proto === 'UDP') {
-		if (EXTENDED_LOGS) log(`Skipping UDP traffic: SRC=${srcIp} DPT=${dpt} ID=${data.id}`);
+		if (EXTENDED_LOGS) log(`Skipping UDP traffic: SRC=${srcIp} DPT=${dpt} SIGNATURE_ID=${id}`);
 		return;
 	}
 
+	const timestamp = parseTimestamp(json.timestamp);
+	const data = { srcIp, dpt, proto, id, timestamp };
 	if (test) return data;
 
 	if (isIPReportedRecently(srcIp)) {
@@ -164,14 +171,14 @@ const processLogLine = async (line, test = false) => {
 	await refreshServerIPs();
 	log(`Fetched ${getServerIPs()?.length} of your IP addresses. If any of them accidentally appear in the UFW logs, they will be ignored.`, 1);
 
-	if (!fs.existsSync(UFW_LOG_FILE)) {
-		log(`Log file ${UFW_LOG_FILE} does not exist`, 3);
+	if (!fs.existsSync(SURICATA_EVE_FILE)) {
+		log(`Log file ${SURICATA_EVE_FILE} does not exist`, 3);
 		return;
 	}
 
 	// Watch
-	fileOffset = fs.statSync(UFW_LOG_FILE).size;
-	chokidar.watch(UFW_LOG_FILE, { persistent: true, ignoreInitial: true })
+	fileOffset = fs.statSync(SURICATA_EVE_FILE).size;
+	chokidar.watch(SURICATA_EVE_FILE, { persistent: true, ignoreInitial: true })
 		.on('change', path => {
 			const stats = fs.statSync(path);
 			if (stats.size < fileOffset) {
@@ -191,7 +198,7 @@ const processLogLine = async (line, test = false) => {
 
 	// Ready
 	await sendWebhook(`[${name}](${repoFullUrl}) has been successfully started on the device \`${SERVER_ID}\`.`, 0x59D267);
-	log(`Ready! Now monitoring: ${UFW_LOG_FILE}`, 1);
+	log(`Ready! Now monitoring: ${SURICATA_EVE_FILE}`, 1);
 	process.send?.('ready');
 })();
 
