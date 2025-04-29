@@ -124,7 +124,10 @@ const processLogLine = async (line, test = false) => {
 	const signature = json.alert?.signature || 'N/A';
 	const id = json.alert?.signature_id || 'N/A';
 	const dpt = json.dest_port || 'N/A';
-	if (severity > MIN_ALERT_SEVERITY) return log(`${signature}: SRC=${ipToReport} DPT=${dpt} SIGNATURE_ID=${id}`);
+	if (severity > MIN_ALERT_SEVERITY) {
+		if (EXTENDED_LOGS) log(`${signature}: SRC=${ipToReport} DPT=${dpt} SIGNATURE_ID=${id}`);
+		return;
+	}
 
 	const proto = json.proto || 'N/A';
 	if (proto === 'UDP') {
