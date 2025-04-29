@@ -129,13 +129,7 @@ const processLogLine = async (line, test = false) => {
 		return;
 	}
 
-	const proto = json.proto || 'N/A';
-	if (proto === 'UDP') {
-		if (EXTENDED_LOGS) log(`Skipping UDP traffic: SRC=${ipToReport} DPT=${dpt} SIGNATURE_ID=${id}`);
-		return;
-	}
-
-	const data = { srcIp: ipToReport, dpt, proto, id, signature, timestamp: parseTimestamp(json.timestamp) };
+	const data = { srcIp: ipToReport, dpt, proto: json.proto || 'N/A', id, signature, timestamp: parseTimestamp(json.timestamp) };
 	if (test) return data;
 
 	if (isIPReportedRecently(ipToReport)) {
