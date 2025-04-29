@@ -4,6 +4,7 @@ exports.MAIN = {
 	CACHE_FILE: './tmp/suricata-abuseipdb-reporter.cache',
 	SERVER_ID: 'development',
 	EXTENDED_LOGS: false,
+	MIN_ALERT_SEVERITY: 2, // The priority level from which the script should start reporting. Default: <=2
 
 	// Network
 	IP_REFRESH_SCHEDULE: '0 */6 * * *', // CRON: How often the script should check the IP address assigned by the ISP to prevent accidental self-reporting. If you have a static IP, you can set it to '0 0 1 * *' (once a month). Default: every 6 hours

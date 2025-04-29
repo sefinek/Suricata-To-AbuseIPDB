@@ -15,7 +15,7 @@ const sendWebhook = require('./scripts/services/discordWebhooks.js');
 const isLocalIP = require('./scripts/isLocalIP.js');
 const log = require('./scripts/log.js');
 const config = require('./config.js');
-const { SURICATA_EVE_FILE, ABUSEIPDB_API_KEY, SERVER_ID, EXTENDED_LOGS, AUTO_UPDATE_ENABLED, AUTO_UPDATE_SCHEDULE, DISCORD_WEBHOOKS_ENABLED, DISCORD_WEBHOOKS_URL } = config.MAIN;
+const { SURICATA_EVE_FILE, ABUSEIPDB_API_KEY, SERVER_ID, EXTENDED_LOGS, MIN_ALERT_SEVERITY, AUTO_UPDATE_ENABLED, AUTO_UPDATE_SCHEDULE, DISCORD_WEBHOOKS_ENABLED, DISCORD_WEBHOOKS_URL } = config.MAIN;
 
 const ABUSE_STATE = { isLimited: false, isBuffering: false, sentBulk: false };
 const RATE_LIMIT_LOG_INTERVAL = 10 * 60 * 1000;
@@ -26,7 +26,7 @@ const nextRateLimitReset = () => {
 	return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 1));
 };
 
-let LAST_RATELIMIT_LOG = 0, LAST_STATS_LOG = 0, RATELIMIT_RESET = nextRateLimitReset(), fileOffset = 0;
+let LAST_RATELIMIT_LOG = 0, LAST_STATS_LOG = 0, RATELIMIT_RESET = nextRateLimitReset();
 
 const checkRateLimit = async () => {
 	const now = Date.now();
@@ -120,15 +120,19 @@ const processLogLine = async (line, test = false) => {
 		ipToReport = destIp;
 	}
 
-	const proto = json.proto || 'N/A';
+	const severity = json.alert.severity;
+	const signature = json.alert?.signature || 'N/A';
 	const id = json.alert?.signature_id || 'N/A';
 	const dpt = json.dest_port || 'N/A';
+	if (severity > MIN_ALERT_SEVERITY) return log(`${signature}: SRC=${ipToReport} DPT=${dpt} SIGNATURE_ID=${id}`);
+
+	const proto = json.proto || 'N/A';
 	if (proto === 'UDP') {
-		if (EXTENDED_LOGS) log(`Skipping UDP traffic: IP=${ipToReport} DPT=${dpt} SIGNATURE_ID=${id}`);
+		if (EXTENDED_LOGS) log(`Skipping UDP traffic: SRC=${ipToReport} DPT=${dpt} SIGNATURE_ID=${id}`);
 		return;
 	}
 
-	const data = { srcIp: ipToReport, dpt, proto, id, signature: json.alert?.signature || 'N/A', timestamp: parseTimestamp(json.timestamp) };
+	const data = { srcIp: ipToReport, dpt, proto, id, signature, timestamp: parseTimestamp(json.timestamp) };
 	if (test) return data;
 
 	if (isIPReportedRecently(ipToReport)) {
