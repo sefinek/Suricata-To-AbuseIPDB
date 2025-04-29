@@ -97,7 +97,7 @@ const reportIp = async ({ srcIp, dpt = 'N/A', proto = 'N/A', id, timestamp }, ca
 };
 
 const processLogLine = async (line, test = false) => {
-	if (!line.includes('"event_type":"alert"') && (line.startsWith('{') && line.endsWith('}'))) return log(`Ignoring invalid line: ${line}`, 2);
+	if (!line.includes('"event_type":"alert"') && (line.startsWith('{') && line.endsWith('}'))) return;
 
 	let json;
 	try {
