@@ -6,4 +6,5 @@ git clone --recurse-submodules https://github.com/sefinek/Suricata-To-AbuseIPDB.
 ```
 
 ## Useful links
+- https://github.com/3CORESec/testmynids.org
 - https://www.abuseipdb.com/categories
