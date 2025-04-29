@@ -25,5 +25,5 @@ exports.MAIN = {
 };
 
 // const serverId = this.MAIN.SERVER_ID ? `on ${this.MAIN.SERVER_ID} ` : '';
-exports.REPORT_COMMENT = ({ signature, srcIp, dpt, proto, id }, fullLog) =>
-	`Suricata (signature ${id}): ${signature || 'Unknown Signature'}]`;
+exports.REPORT_COMMENT = ({ srcIp, dpt, proto, id, severity, signature, timestamp }, fullLog) =>
+	`Suricata (signature ${id}, severity: ${severity}): ${signature || 'Unknown Signature'}]`;

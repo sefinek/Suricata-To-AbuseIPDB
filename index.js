@@ -48,9 +48,7 @@ const checkRateLimit = async () => {
 	}
 };
 
-const reportIp = async ({ srcIp, dpt = 'N/A', proto = 'N/A', id, timestamp }, categories = '14', comment) => {
-	if (!srcIp) return log('Missing source IP (srcIp)', 3);
-
+const reportIp = async ({ srcIp, dpt = 'N/A', proto = 'N/A', id, severity, timestamp }, categories = '14', comment) => {
 	await checkRateLimit();
 
 	if (ABUSE_STATE.isBuffering) {
@@ -68,7 +66,7 @@ const reportIp = async ({ srcIp, dpt = 'N/A', proto = 'N/A', id, timestamp }, ca
 			comment,
 		}), { headers: { 'Key': ABUSEIPDB_API_KEY } });
 
-		log(`Reported ${srcIp} [${dpt}/${proto}]; ID: ${id}; Categories: ${categories}; Abuse: ${res.data.abuseConfidenceScore}%`, 1);
+		log(`Reported ${srcIp} [${dpt}/${proto}]; Signature: ${id}; Severity ${severity}; Categories: ${categories}; Abuse: ${res.data.abuseConfidenceScore}%`, 1);
 		return true;
 	} catch (err) {
 		const status = err.response?.status ?? 'unknown';
@@ -125,11 +123,11 @@ const processLogLine = async (line, test = false) => {
 	const id = json.alert?.signature_id || 'N/A';
 	const dpt = json.dest_port || 'N/A';
 	if (severity > MIN_ALERT_SEVERITY) {
-		if (EXTENDED_LOGS) log(`${signature}: SRC=${ipToReport} DPT=${dpt} SIGNATURE_ID=${id}`);
+		if (EXTENDED_LOGS) log(`${signature}: SRC=${ipToReport} DPT=${dpt} SIGNATURE=${id} SEVERITY=${severity}`);
 		return;
 	}
 
-	const data = { srcIp: ipToReport, dpt, proto: json.proto || 'N/A', id, signature, timestamp: parseTimestamp(json.timestamp) };
+	const data = { srcIp: ipToReport, dpt, proto: json.proto || 'N/A', id, severity, signature, timestamp: parseTimestamp(json.timestamp) };
 	if (test) return data;
 
 	if (isIPReportedRecently(ipToReport)) {
