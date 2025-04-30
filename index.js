@@ -48,7 +48,7 @@ const checkRateLimit = async () => {
 	}
 };
 
-const reportIp = async ({ srcIp, dpt = 'N/A', proto = 'N/A', id, severity, timestamp }, categories = '14', comment) => {
+const reportIp = async ({ srcIp, dpt = 'N/A', proto = 'N/A', id, severity, timestamp }, categories = '15', comment) => {
 	await checkRateLimit();
 
 	if (ABUSE_STATE.isBuffering) {
