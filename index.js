@@ -4,7 +4,6 @@
 const fs = require('node:fs');
 const TailFile = require('@logdna/tail-file');
 const split2 = require('split2');
-// const chokidar = require('chokidar');
 const { parseTimestamp } = require('ufw-log-parser');
 const axios = require('./scripts/services/axios.js');
 const { saveBufferToFile, loadBufferFromFile, sendBulkReport, BULK_REPORT_BUFFER } = require('./scripts/services/bulk.js');
