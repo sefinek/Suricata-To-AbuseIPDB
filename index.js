@@ -158,14 +158,14 @@ const processLogLine = async (line, test = false) => {
 (async () => {
 	log(`${repoFullUrl} - v${version} | Author: ${authorEmailWebsite}`);
 
-	// Auto updates
+	// Auto updates ---
 	if (AUTO_UPDATE_ENABLED && AUTO_UPDATE_SCHEDULE && SERVER_ID !== 'development') {
 		await require('./scripts/services/updates.js')();
 	} else {
 		await require('./scripts/services/version.js')();
 	}
 
-	// Bulk
+	// Bulk ---
 	await loadReportedIPs();
 	await loadBufferFromFile();
 
@@ -174,8 +174,7 @@ const processLogLine = async (line, test = false) => {
 		await sendBulkReport();
 	}
 
-
-	// Fetch IPs
+	// Fetch IPs ---
 	log('Trying to fetch your IPv4 and IPv6 address from api.sefinek.net...');
 	await refreshServerIPs();
 	log(`Fetched ${getServerIPs()?.length} of your IP addresses. If any of them accidentally appear in the UFW logs, they will be ignored.`, 1);
@@ -185,7 +184,7 @@ const processLogLine = async (line, test = false) => {
 		return;
 	}
 
-	// Watch
+	// Watch ---
 	const tail = new TailFile(SURICATA_EVE_FILE);
 	tail
 		.on('tail_error', err => log(err, 3))
@@ -194,12 +193,12 @@ const processLogLine = async (line, test = false) => {
 
 	tail
 		.pipe(split2())
-		.on('data', line => processLogLine(line));
+		.on('data', processLogLine);
 
-	// Summaries
+	// Summaries ---
 	if (DISCORD_WEBHOOKS_ENABLED && DISCORD_WEBHOOKS_URL) await require('./scripts/services/summaries.js')();
 
-	// Ready
+	// Ready ---
 	await sendWebhook(`[${name}](${repoFullUrl}) has been successfully started on the device \`${SERVER_ID}\`.`, 0x59D267);
 	log(`Ready! Now monitoring: ${SURICATA_EVE_FILE}`, 1);
 	process.send?.('ready');

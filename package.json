@@ -1,6 +1,6 @@
 {
   "name": "suricata-to-abuseipdb",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "description": "Integration tool that analyzes Suricata logs in real time and reports malicious IP addresses to AbuseIPDB.",
   "homepage": "https://github.com/sefinek/Suricata-To-AbuseIPDB#readme",
   "bugs": {
