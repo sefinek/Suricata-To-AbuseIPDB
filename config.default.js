@@ -19,7 +19,7 @@ exports.MAIN = {
 	AUTO_UPDATE_ENABLED: false, // Automatic updates: true to enable auto-update via 'git pull', false to disable.
 	AUTO_UPDATE_SCHEDULE: '0 15,17,18,20 * * *', // Cron schedule for automatic script updates. Default: every day at 15:00, 17:00, 18:00, 20:00
 
-	/* -------------------- Discord Webhooks (NOT RECOMMENDED) -------------------- */
+	/* --------------------------- Discord Webhooks --------------------------- */
 	DISCORD_WEBHOOK_ENABLED: false, // Enables sending Discord webhooks with error reports, execution status, and other events.
 	DISCORD_WEBHOOK_URL: '',
 	DISCORD_WEBHOOK_USERNAME: 'SERVER_ID', // Username shown as the message author. Use null for default. 'SERVER_ID' will resolve to this.MAIN.SERVER_ID.
