@@ -31,20 +31,20 @@ Also, check this out: [sefinek/Cloudflare-WAF-To-AbuseIPDB](https://github.com/s
 
 ## 📥 Installation (Ubuntu & Debian)
 
-### Node.js installation
+### Install Node.js
 ```bash
 sudo apt install -y curl && \
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && \
 sudo apt install -y nodejs
 ```
 
-### Git installation
+### Install Git
 ```bash
 sudo add-apt-repository -y ppa:git-core/ppa && \
 sudo apt update && sudo apt install -y git
 ```
 
-### Commands
+### Clone & Set up
 ```bash
 sudo apt update && sudo apt upgrade
 cd ~
@@ -58,12 +58,12 @@ eval "$(pm2 startup | grep sudo)"
 pm2 save
 ```
 
-### 🔍 Check logs
+### 🔍 Check Logs
 ```bash
 pm2 logs suricata-abuseipdb
 ```
 
-### 📄 Example reports
+### 📄 Example Reports
 ```text
 
 ```
