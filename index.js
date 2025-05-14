@@ -1,20 +1,21 @@
-//   Copyright 2024-2025 (c) by Sefinek All rights reserved.
-//                     https://sefinek.net
+//   Copyright 2025 © by Sefinek. All Rights Reserved.
+//                 https://sefinek.net
 
 const fs = require('node:fs');
 const TailFile = require('@logdna/tail-file');
 const split2 = require('split2');
 const { parseTimestamp } = require('ufw-log-parser');
-const axios = require('./scripts/services/axios.js');
+const banner = require('./scripts/banners/ufw.js');
+const { axios } = require('./scripts/services/axios.js');
 const { saveBufferToFile, loadBufferFromFile, sendBulkReport, BULK_REPORT_BUFFER } = require('./scripts/services/bulk.js');
 const { reportedIPs, loadReportedIPs, saveReportedIPs, isIPReportedRecently, markIPAsReported } = require('./scripts/services/cache.js');
 const { refreshServerIPs, getServerIPs } = require('./scripts/services/ipFetcher.js');
-const { name, version, authorEmailWebsite, repoFullUrl } = require('./scripts/repo.js');
+const { name, version, repoFullUrl } = require('./scripts/repo.js');
 const sendWebhook = require('./scripts/services/discordWebhooks.js');
-const isLocalIP = require('./scripts/isLocalIP.js');
-const log = require('./scripts/log.js');
+const isSpecialPurposeIP = require('./scripts/isSpecialPurposeIP.js');
+const logger = require('./scripts/logger.js');
 const config = require('./config.js');
-const { SURICATA_EVE_FILE, ABUSEIPDB_API_KEY, SERVER_ID, EXTENDED_LOGS, MIN_ALERT_SEVERITY, AUTO_UPDATE_ENABLED, AUTO_UPDATE_SCHEDULE, DISCORD_WEBHOOKS_ENABLED, DISCORD_WEBHOOKS_URL } = config.MAIN;
+const { SURICATA_EVE_FILE, ABUSEIPDB_API_KEY, SERVER_ID, EXTENDED_LOGS, MIN_ALERT_SEVERITY, AUTO_UPDATE_ENABLED, AUTO_UPDATE_SCHEDULE, DISCORD_WEBHOOK_ENABLED, DISCORD_WEBHOOK_URL } = config.MAIN;
 
 const ABUSE_STATE = { isLimited: false, isBuffering: false, sentBulk: false };
 const RATE_LIMIT_LOG_INTERVAL = 10 * 60 * 1000;
@@ -38,23 +39,25 @@ const checkRateLimit = async () => {
 			if (!ABUSE_STATE.sentBulk && BULK_REPORT_BUFFER.size > 0) await sendBulkReport();
 			RATELIMIT_RESET = nextRateLimitReset();
 			ABUSE_STATE.sentBulk = false;
-			log(`Rate limit reset. Next reset scheduled at ${RATELIMIT_RESET.toISOString()}`, 1);
+			logger.log(`Rate limit reset. Next reset scheduled at ${RATELIMIT_RESET.toISOString()}`, 1);
 		} else if (now - LAST_RATELIMIT_LOG >= RATE_LIMIT_LOG_INTERVAL) {
 			const minutesLeft = Math.ceil((RATELIMIT_RESET.getTime() - now) / 60000);
-			log(`Rate limit is still active. Collected ${BULK_REPORT_BUFFER.size} IPs. Waiting for reset in ${minutesLeft} minute(s) (${RATELIMIT_RESET.toISOString()})`, 1);
+			logger.log(`Rate limit is still active. Collected ${BULK_REPORT_BUFFER.size} IPs. Waiting for reset in ${minutesLeft} minute(s) (${RATELIMIT_RESET.toISOString()})`, 1);
 			LAST_RATELIMIT_LOG = now;
 		}
 	}
 };
 
 const reportIp = async ({ srcIp, dpt = 'N/A', proto = 'N/A', id, severity, timestamp }, categories = '15', comment) => {
+	if (!srcIp) return logger.log('Missing source IP (srcIp)', 3);
+
 	await checkRateLimit();
 
 	if (ABUSE_STATE.isBuffering) {
 		if (BULK_REPORT_BUFFER.has(srcIp)) return;
 		BULK_REPORT_BUFFER.set(srcIp, { categories, timestamp, comment });
 		await saveBufferToFile();
-		log(`Queued ${srcIp} for bulk report (collected ${BULK_REPORT_BUFFER.size} IPs)`, 1);
+		logger.log(`Queued ${srcIp} for bulk report (collected ${BULK_REPORT_BUFFER.size} IPs)`, 1);
 		return;
 	}
 
@@ -65,7 +68,7 @@ const reportIp = async ({ srcIp, dpt = 'N/A', proto = 'N/A', id, severity, times
 			comment,
 		}), { headers: { 'Key': ABUSEIPDB_API_KEY } });
 
-		log(`Reported ${srcIp} [${dpt}/${proto}]; Signature: ${id}; Severity ${severity}; Categories: ${categories}; Abuse: ${res.data.abuseConfidenceScore}%`, 1);
+		logger.log(`Reported ${srcIp} [${dpt}/${proto}]; Signature: ${id}; Severity ${severity}; Categories: ${categories}; Abuse: ${res.data.abuseConfidenceScore}%`, 1);
 		return true;
 	} catch (err) {
 		const status = err.response?.status ?? 'unknown';
@@ -76,19 +79,16 @@ const reportIp = async ({ srcIp, dpt = 'N/A', proto = 'N/A', id, severity, times
 				ABUSE_STATE.sentBulk = false;
 				LAST_RATELIMIT_LOG = Date.now();
 				RATELIMIT_RESET = nextRateLimitReset();
-				log(`Daily AbuseIPDB limit reached. Buffering reports until ${RATELIMIT_RESET.toLocaleString()}`, 0, true);
+				logger.log(`Daily AbuseIPDB limit reached. Buffering reports until ${RATELIMIT_RESET.toLocaleString()}`, 0, true);
 			}
 
-			if (BULK_REPORT_BUFFER.has(srcIp)) {
-				log(`${srcIp} is already in buffer, skipping`);
-				return;
+			if (!BULK_REPORT_BUFFER.has(srcIp)) {
+				BULK_REPORT_BUFFER.set(srcIp, { timestamp, categories, comment });
+				await saveBufferToFile();
+				logger.log(`Queued ${srcIp} for bulk report due to rate limit`, 1);
 			}
-
-			BULK_REPORT_BUFFER.set(srcIp, { timestamp, categories, comment });
-			await saveBufferToFile();
-			log(`Queued ${srcIp} for bulk report due to rate limit`);
 		} else {
-			log(`Failed to report ${srcIp} [${dpt}/${proto}]; ${err.response?.data?.errors ? JSON.stringify(err.response.data.errors) : err.message}`, status === 429 ? 0 : 3);
+			logger.log(`Failed to report ${srcIp} [${dpt}/${proto}]; ${err.response?.data?.errors ? JSON.stringify(err.response.data.errors) : err.message}`, status === 429 ? 0 : 3);
 		}
 	}
 };
@@ -100,20 +100,21 @@ const processLogLine = async (line, test = false) => {
 	try {
 		json = JSON.parse(line);
 	} catch (err) {
-		log(`Invalid JSON: ${err.message}:`, 3);
-		return log(`Line: ${line}:`, 3);
+		logger.log(`Invalid JSON: ${err.message}:`, 3);
+		return logger.log(`Line: ${line}:`, 3);
 	}
 
 	const srcIp = json.src_ip;
-	if (!srcIp) return log(`Missing SRC in the alert: ${line}`, 3);
+	if (!srcIp) return logger.log(`Missing SRC in the alert: ${line}`, 3);
 
+	// Check IP
 	const ips = getServerIPs();
-	if (!Array.isArray(ips)) return log(`For some reason, 'ips' from 'getServerIPs()' is not an array. Received: ${ips}`, 3, true);
+	if (!Array.isArray(ips)) return logger.log(`For some reason, 'ips' from 'getServerIPs()' is not an array. Received: ${ips}`, 3, true);
 
 	const destIp = json.dest_ip;
 	let ipToReport = srcIp;
-	if (ips.includes(srcIp) || isLocalIP(srcIp)) {
-		if (ips.includes(destIp) || isLocalIP(destIp)) return log(`Both SRC=${srcIp} and DEST=${destIp} are local or own, ignoring alert`, 0, true);
+	if (ips.includes(srcIp) || isSpecialPurposeIP(srcIp)) {
+		if (ips.includes(destIp) || isSpecialPurposeIP(destIp)) return logger.log(`Both SRC=${srcIp} and DEST=${destIp} are local or own, ignoring alert`, 0, EXTENDED_LOGS);
 		ipToReport = destIp;
 	}
 
@@ -122,15 +123,16 @@ const processLogLine = async (line, test = false) => {
 	const id = json.alert?.signature_id || 'N/A';
 	const dpt = json.dest_port || 'N/A';
 	if (severity > MIN_ALERT_SEVERITY) {
-		if (EXTENDED_LOGS) log(`${signature}: SRC=${ipToReport} DPT=${dpt} SIGNATURE=${id} SEVERITY=${severity}`);
+		if (EXTENDED_LOGS) logger.log(`${signature}: SRC=${ipToReport} DPT=${dpt} SIGNATURE=${id} SEVERITY=${severity}`);
 		return;
 	}
 
 	const data = { srcIp: ipToReport, dpt, proto: json.proto || 'N/A', id, severity, signature, timestamp: parseTimestamp(json.timestamp) };
 	if (test) return data;
 
-	if (isIPReportedRecently(ipToReport)) {
-		const lastReportedTime = reportedIPs.get(ipToReport);
+	// Report
+	if (isIPReportedRecently(srcIp)) {
+		const lastReportedTime = reportedIPs.get(srcIp);
 		const elapsedTime = Math.floor(Date.now() / 1000 - lastReportedTime);
 		const days = Math.floor(elapsedTime / 86400);
 		const hours = Math.floor((elapsedTime % 86400) / 3600);
@@ -143,63 +145,63 @@ const processLogLine = async (line, test = false) => {
 			(seconds || (!days && !hours && !minutes)) && `${seconds}s`,
 		].filter(Boolean).join(' ');
 
-		if (EXTENDED_LOGS) log(`${ipToReport} was last reported on ${new Date(lastReportedTime * 1000).toLocaleString()} (${timeAgo} ago)`);
+		if (EXTENDED_LOGS) logger.log(`${srcIp} was last reported on ${new Date(lastReportedTime * 1000).toLocaleString()} (${timeAgo} ago)`);
 		return;
 	}
 
-	const comment = config.REPORT_COMMENT(data, json);
+	const comment = config.REPORT_COMMENT(data, line);
 	if (await reportIp(data, undefined, comment)) {
-		markIPAsReported(ipToReport);
+		markIPAsReported(srcIp);
 		await saveReportedIPs();
 	}
 };
 
 (async () => {
-	log(`${repoFullUrl} - v${version} | Author: ${authorEmailWebsite}`);
+	banner(`Suricata To AbuseIPDB (v${version})`);
 
-	// Auto updates ---
+	// Auto updates
 	if (AUTO_UPDATE_ENABLED && AUTO_UPDATE_SCHEDULE && SERVER_ID !== 'development') {
 		await require('./scripts/services/updates.js');
 	} else {
 		await require('./scripts/services/version.js');
 	}
 
-	// Bulk ---
-	await loadReportedIPs();
-	await loadBufferFromFile();
+	// Fetch IPs
+	await refreshServerIPs();
 
+	// Load cache
+	await loadReportedIPs();
+
+	// Bulk
+	await loadBufferFromFile();
 	if (BULK_REPORT_BUFFER.size > 0 && !ABUSE_STATE.isLimited) {
-		log(`Found ${BULK_REPORT_BUFFER.size} IPs in buffer after restart. Sending bulk report...`);
+		logger.log(`Found ${BULK_REPORT_BUFFER.size} IPs in buffer after restart. Sending bulk report...`);
 		await sendBulkReport();
 	}
 
-	// Fetch IPs ---
-	log('Trying to fetch your IPv4 and IPv6 address from api.sefinek.net...');
-	await refreshServerIPs();
-	log(`Fetched ${getServerIPs()?.length} of your IP addresses. If any of them accidentally appear in the UFW logs, they will be ignored.`, 1);
-
+	// Check SURICATA_EVE_FILE
 	if (!fs.existsSync(SURICATA_EVE_FILE)) {
-		log(`Log file ${SURICATA_EVE_FILE} does not exist`, 3);
+		logger.log(`Log file ${SURICATA_EVE_FILE} does not exist`, 3);
 		return;
 	}
 
-	// Watch ---
+	// Watch
 	const tail = new TailFile(SURICATA_EVE_FILE);
 	tail
-		.on('tail_error', err => log(err, 3))
+		.on('tail_error', err => logger.log(err, 3))
 		.start()
-		.catch(err => log(err, 3));
+		.catch(err => logger.log(err, 3));
 
 	tail
 		.pipe(split2())
 		.on('data', processLogLine);
 
-	// Summaries ---
-	if (DISCORD_WEBHOOKS_ENABLED && DISCORD_WEBHOOKS_URL) await require('./scripts/services/summaries.js')();
+	// Summaries
+	if (DISCORD_WEBHOOK_ENABLED && DISCORD_WEBHOOK_URL) await require('./scripts/services/summaries.js')();
 
-	// Ready ---
+	// Ready
 	await sendWebhook(`[${name}](${repoFullUrl}) was successfully started!`, 0x59D267);
-	log(`Ready! Now monitoring: ${SURICATA_EVE_FILE}`, 1);
+	logger.log(`Ready! Now monitoring: ${SURICATA_EVE_FILE}`, 1);
 	process.send?.('ready');
 })();
 
