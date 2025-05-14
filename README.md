@@ -3,7 +3,7 @@ An integration tool designed to analyze Suricata logs and report IP addresses to
 To prevent excessive reporting of the same IP address within a short time period, the tool uses a temporary cache file to track previously reported IP addresses.
 
 ⭐ If you like this repository or find it useful, I'd greatly appreciate it if you could give it a star. Many thanks!  
-Also, check this out: [sefinek/Cloudflare-WAF-To-AbuseIPDB](https://github.com/sefinek/Cloudflare-WAF-To-AbuseIPDB)
+🧱 Also, check this out: [sefinek/Cloudflare-WAF-To-AbuseIPDB](https://github.com/sefinek/Cloudflare-WAF-To-AbuseIPDB)
 
 > [!IMPORTANT]
 > - If you'd like to make changes to any files in this repository, please start by creating a [public fork](https://github.com/sefinek/Suricata-To-AbuseIPDB/fork).
