@@ -114,7 +114,7 @@ const processLogLine = async (line, test = false) => {
 	const destIp = json.dest_ip;
 	let ipToReport = srcIp;
 	if (ips.includes(srcIp) || isSpecialPurposeIP(srcIp)) {
-		if (ips.includes(destIp) || isSpecialPurposeIP(destIp)) return logger.log(`Both SRC=${srcIp} and DEST=${destIp} are local or own, ignoring alert`, 0, EXTENDED_LOGS);
+		if ((ips.includes(destIp) || isSpecialPurposeIP(destIp)) && EXTENDED_LOGS) return logger.log(`Both SRC=${srcIp} and DEST=${destIp} are local or own, ignoring alert`);
 		ipToReport = destIp;
 	}
 
