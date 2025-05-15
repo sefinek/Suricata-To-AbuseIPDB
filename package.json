@@ -1,6 +1,6 @@
 {
   "name": "suricata-to-abuseipdb",
-  "version": "0.1.0-beta.4",
+  "version": "0.2.0",
   "homepage": "https://github.com/sefinek/Suricata-To-AbuseIPDB#readme",
   "bugs": {
     "url": "https://github.com/sefinek/Suricata-To-AbuseIPDB/issues"
