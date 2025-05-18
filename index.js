@@ -121,6 +121,7 @@ const processLogLine = async (line, test = false) => {
 	}
 	if (srcIsLocal) ipToReport = destIp;
 
+	// Process
 	const severity = json.alert.severity;
 	const signature = json.alert?.signature || 'N/A';
 	const id = json.alert?.signature_id || 'N/A';
