@@ -113,10 +113,13 @@ const processLogLine = async (line, test = false) => {
 
 	const destIp = json.dest_ip;
 	let ipToReport = srcIp;
-	if (ips.includes(srcIp) || isSpecialPurposeIP(srcIp)) {
-		if ((ips.includes(destIp) || isSpecialPurposeIP(destIp)) && EXTENDED_LOGS) return logger.log(`Both SRC=${srcIp} and DEST=${destIp} are local or own, ignoring alert`);
-		ipToReport = destIp;
+	const srcIsLocal = ips.includes(srcIp) || isSpecialPurposeIP(srcIp);
+	const destIsLocal = ips.includes(destIp) || isSpecialPurposeIP(destIp);
+	if (srcIsLocal && destIsLocal) {
+		if (EXTENDED_LOGS) logger.log(`Both SRC=${srcIp} and DEST=${destIp} are local/special, ignoring alert`);
+		return;
 	}
+	if (srcIsLocal) ipToReport = destIp;
 
 	const severity = json.alert.severity;
 	const signature = json.alert?.signature || 'N/A';
