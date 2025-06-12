@@ -14,7 +14,7 @@ const { repoSlug, repoUrl } = require('./scripts/repo.js');
 const isSpecialPurposeIP = require('./scripts/isSpecialPurposeIP.js');
 const logger = require('./scripts/logger.js');
 const config = require('./config.js');
-const { SURICATA_EVE_FILE, ABUSEIPDB_API_KEY, SERVER_ID, EXTENDED_LOGS, MIN_ALERT_SEVERITY, AUTO_UPDATE_ENABLED, AUTO_UPDATE_SCHEDULE, DISCORD_WEBHOOK_ENABLED, DISCORD_WEBHOOK_URL } = config.MAIN;
+const { SURICATA_EVE_FILE, ABUSEIPDB_API_KEY, SERVER_ID, EXTENDED_LOGS, MIN_ALERT_SEVERITY, AUTO_UPDATE_ENABLED, AUTO_UPDATE_SCHEDULE, DISCORD_WEBHOOK_ENABLED, DISCORD_WEBHOOK_URL, DISCORD_ALERT_SEVERITY_THRESHOLD } = config.MAIN;
 
 const ABUSE_STATE = { isLimited: false, isBuffering: false, sentBulk: false };
 const RATE_LIMIT_LOG_INTERVAL = 10 * 60 * 1000;
@@ -68,6 +68,8 @@ const reportIp = async ({ srcIp, dpt = 'N/A', proto = 'N/A', id, severity, times
 		}), { headers: { 'Key': ABUSEIPDB_API_KEY } });
 
 		logger.log(`Reported ${srcIp} [${dpt}/${proto}]; Signature: ${id}; Severity ${severity}; Categories: ${categories}; Abuse: ${res.data.abuseConfidenceScore}%`, 1);
+
+		if (DISCORD_ALERT_SEVERITY_THRESHOLD !== null && severity <= DISCORD_ALERT_SEVERITY_THRESHOLD) await logger.webhook(comment);
 		return true;
 	} catch (err) {
 		const status = err.response?.status ?? 'unknown';
