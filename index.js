@@ -69,7 +69,7 @@ const reportIp = async ({ srcIp, dpt = 'N/A', proto = 'N/A', id, severity, times
 
 		logger.log(`Reported ${srcIp} [${dpt}/${proto}]; Signature: ${id}; Severity ${severity}; Categories: ${categories}; Abuse: ${res.data.abuseConfidenceScore}%`, 1);
 
-		if (DISCORD_ALERT_SEVERITY_THRESHOLD !== null && severity <= DISCORD_ALERT_SEVERITY_THRESHOLD) await logger.webhook(comment);
+		if (typeof DISCORD_ALERT_SEVERITY_THRESHOLD === 'number' && severity <= DISCORD_ALERT_SEVERITY_THRESHOLD) await logger.webhook(comment);
 		return true;
 	} catch (err) {
 		const status = err.response?.status ?? 'unknown';
