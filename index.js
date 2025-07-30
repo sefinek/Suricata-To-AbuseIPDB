@@ -106,7 +106,7 @@ const processLogLine = async (line, test = false) => {
 	}
 
 	const srcIp = json.src_ip;
-	if (!srcIp) return logger.log(`Missing SRC in the alert: ${line}`, 3);
+	if (!srcIp) return;
 
 	// Check IP
 	const ips = getServerIPs();
