@@ -53,7 +53,7 @@ cd Suricata-To-AbuseIPDB
 npm install
 cp config.default.js config.js
 npm install -g pm2
-pm2 start .
+pm2 start
 eval "$(pm2 startup | grep sudo)"
 pm2 save
 ```
