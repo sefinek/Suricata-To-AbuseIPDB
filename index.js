@@ -6,7 +6,7 @@ const TailFile = require('@logdna/tail-file');
 const split2 = require('split2');
 const { parseTimestamp } = require('ufw-log-parser');
 const banner = require('./scripts/banners/suricata.js');
-const { axios } = require('./scripts/services/axios.js');
+const { axiosService } = require('./scripts/services/axios.js');
 const { saveBufferToFile, loadBufferFromFile, sendBulkReport, BULK_REPORT_BUFFER } = require('./scripts/services/bulk.js');
 const { reportedIPs, loadReportedIPs, saveReportedIPs, isIPReportedRecently, markIPAsReported } = require('./scripts/services/cache.js');
 const { refreshServerIPs, getServerIPs } = require('./scripts/services/ipFetcher.js');
@@ -61,7 +61,7 @@ const reportIp = async ({ srcIp, dpt = 'N/A', proto = 'N/A', id, severity, times
 	}
 
 	try {
-		const { data: res } = await axios.post('/report', new URLSearchParams({
+		const { data: res } = await axiosService.post('/report', new URLSearchParams({
 			ip: srcIp,
 			categories,
 			comment,
