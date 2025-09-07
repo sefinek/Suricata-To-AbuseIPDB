@@ -61,11 +61,11 @@ const reportIp = async ({ srcIp, dpt = 'N/A', proto = 'N/A', id, severity, times
 	}
 
 	try {
-		const { data: res } = await axiosService.post('/report', new URLSearchParams({
+		const { data: res } = await axiosService.post('/report', {
 			ip: srcIp,
 			categories,
 			comment,
-		}), { headers: { 'Key': ABUSEIPDB_API_KEY } });
+		});
 
 		logger.log(`Reported ${srcIp} [${dpt}/${proto}]; Signature: ${id}; Severity ${severity}; Categories: ${categories}; Abuse: ${res.data.abuseConfidenceScore}%`, 1);
 
