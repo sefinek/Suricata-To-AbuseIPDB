@@ -1,15 +1,16 @@
 exports.MAIN = {
 	/* --------------------------- Server --------------------------- */
 	SERVER_ID: null, // Server identifier (e.g., 'hp-terminal', 'pl-cluster', 'de1'). Use 'development' for testing only. 'production' has no effect. Use null to leave it unset.
+	SURICATA_EVE_FILE: '/var/log/suricata/eve.json',
 	EXTENDED_LOGS: false, // Specifies whether the script should display additional information in the logs.
 	MIN_ALERT_SEVERITY: 2, // The priority level from which the script should start reporting. Default: <=2
-	SURICATA_EVE_FILE: '/var/log/suricata/eve.json',
+	IGNORED_SIGNATURES: [], // Array of signature IDs to ignore (e.g., [2018918, 2400034]). Alerts matching these signatures will not be reported.
 	CACHE_FILE: './tmp/suricata-abuseipdb-reporter.cache',
 
 	/* --------------------------- Network --------------------------- */
-	IP_ASSIGNMENT: 'dynamic', // IP assignment type: 'static' for a fixed IP, 'dynamic' if it may change over time.
+	IP_ASSIGNMENT: 'dynamic', // 'static' for a fixed IP, 'dynamic' if it may change over time.
 	IP_REFRESH_SCHEDULE: '0 */6 * * *', // Cron schedule for checking the public IP assigned by your ISP. Used only with dynamic IPs to prevent accidental self-reporting. If IP_ASSIGNMENT is set to 'static', the script will check your IP only once.
-	IPv6_SUPPORT: true, // IPv6 support: true if the device has a globally routable address assigned by the ISP.
+	IPv6_SUPPORT: true, // True if the device has a globally routable address assigned by the ISP.
 
 	/* --------------------------- Reports --------------------------- */
 	ABUSEIPDB_API_KEY: '', // https://www.abuseipdb.com/account/api

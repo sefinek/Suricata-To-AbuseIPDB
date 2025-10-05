@@ -14,7 +14,7 @@ const { repoSlug, repoUrl } = require('./scripts/repo.js');
 const isSpecialPurposeIP = require('./scripts/isSpecialPurposeIP.js');
 const logger = require('./scripts/logger.js');
 const config = require('./config.js');
-const { SURICATA_EVE_FILE, SERVER_ID, EXTENDED_LOGS, MIN_ALERT_SEVERITY, AUTO_UPDATE_ENABLED, AUTO_UPDATE_SCHEDULE, DISCORD_WEBHOOK_ENABLED, DISCORD_WEBHOOK_URL, DISCORD_ALERT_SEVERITY_THRESHOLD } = config.MAIN;
+const { SURICATA_EVE_FILE, SERVER_ID, EXTENDED_LOGS, MIN_ALERT_SEVERITY, IGNORED_SIGNATURES, AUTO_UPDATE_ENABLED, AUTO_UPDATE_SCHEDULE, DISCORD_WEBHOOK_ENABLED, DISCORD_WEBHOOK_URL, DISCORD_ALERT_SEVERITY_THRESHOLD } = config.MAIN;
 
 const ABUSE_STATE = { isLimited: false, isBuffering: false, sentBulk: false };
 const RATE_LIMIT_LOG_INTERVAL = 10 * 60 * 1000;
@@ -127,6 +127,12 @@ const processLogLine = async (line, test = false) => {
 	const signature = json.alert?.signature || 'N/A';
 	const id = json.alert?.signature_id || 'N/A';
 	const dpt = json.dest_port || 'N/A';
+
+	if (IGNORED_SIGNATURES?.includes(id)) {
+		if (EXTENDED_LOGS) logger.log(`Signature ${id} is ignored, skipping alert`);
+		return;
+	}
+
 	if (severity > MIN_ALERT_SEVERITY) {
 		if (EXTENDED_LOGS) logger.log(`${signature}: SRC=${ipToReport} DPT=${dpt} SIGNATURE=${id} SEVERITY=${severity}`);
 		return;
