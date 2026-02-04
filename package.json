@@ -1,6 +1,6 @@
 {
   "name": "suricata-to-abuseipdb",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "homepage": "https://github.com/sefinek/Suricata-To-AbuseIPDB#readme",
   "bugs": {
     "url": "https://github.com/sefinek/Suricata-To-AbuseIPDB/issues"
@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@logdna/tail-file": "^4.0.2",
-    "axios": "^1.13.2",
+    "axios": "^1.13.4",
     "axios-retry": "^4.5.0",
     "cron": "^4.4.0",
     "csv-parse": "^6.1.0",
@@ -35,6 +35,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
-    "globals": "^16.5.0"
+    "globals": "^17.3.0"
   }
 }
