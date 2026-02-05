@@ -4,7 +4,8 @@ exports.MAIN = {
 	SURICATA_EVE_FILE: '/var/log/suricata/eve.json',
 	EXTENDED_LOGS: false, // Specifies whether the script should display additional information in the logs.
 	MIN_ALERT_SEVERITY: 2, // The priority level from which the script should start reporting. Default: <=2
-	IGNORED_SIGNATURES: [], // Array of signature IDs to ignore (e.g., [2018918, 2400034]). Alerts matching these signatures will not be reported.
+	USE_BUILT_IN_IGNORED_SIGNATURES: true, // Enable built-in signature blacklist (Discord, Steam, etc.). See: scripts/suricata/ignoredSignatures.js
+	IGNORED_SIGNATURES: [], // Custom signature IDs to ignore, merged with built-in list if enabled. Example: [2018918, 2400034]
 	CACHE_FILE: './tmp/suricata-abuseipdb-reporter.cache',
 
 	/* --------------------------- Network --------------------------- */

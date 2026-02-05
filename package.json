@@ -1,6 +1,6 @@
 {
   "name": "suricata-to-abuseipdb",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "homepage": "https://github.com/sefinek/Suricata-To-AbuseIPDB#readme",
   "bugs": {
     "url": "https://github.com/sefinek/Suricata-To-AbuseIPDB/issues"
@@ -28,7 +28,7 @@
     "csv-stringify": "^6.6.0",
     "form-data": "^4.0.5",
     "ipaddr.js": "^2.3.0",
-    "semver": "^7.7.3",
+    "semver": "^7.7.4",
     "simple-git": "^3.30.0",
     "split2": "^4.2.0",
     "ufw-log-parser": "^0.1.3"
