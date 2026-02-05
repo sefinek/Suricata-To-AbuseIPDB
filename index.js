@@ -95,14 +95,15 @@ const reportIp = async ({ srcIp, dpt = 'N/A', proto = 'N/A', id, severity, times
 };
 
 const processLogLine = async (line, test = false) => {
-	if (!line.includes('"event_type":"alert"') && (line.startsWith('{') && line.endsWith('}'))) return;
+	if (!line || !line.startsWith('{') || !line.endsWith('}')) return;
+	if (!line.includes('"event_type":"alert"')) return;
 
 	let json;
 	try {
 		json = JSON.parse(line);
 	} catch (err) {
-		logger.error(`Invalid JSON: ${err.message}`);
-		return logger.error(`Line: ${line}`);
+		if (EXTENDED_LOGS) logger.error(`Invalid JSON: ${err.message}\nLine: ${line.slice(0, 200)}${line.length > 200 ? '...' : ''}`);
+		return;
 	}
 
 	const srcIp = json.src_ip;
@@ -138,7 +139,8 @@ const processLogLine = async (line, test = false) => {
 		return;
 	}
 
-	const data = { srcIp: ipToReport, dpt, proto: json.proto || 'N/A', id, severity, signature, timestamp: parseTimestamp(json.timestamp) };
+	const { timestamp } = parseTimestamp(json.timestamp);
+	const data = { srcIp: ipToReport, dpt, proto: json.proto || 'N/A', id, severity, signature, timestamp };
 	if (test) return data;
 
 	// Report
