@@ -32,17 +32,10 @@ To prevent excessive reporting of the same IP address within a short time period
 ## 📥 Installation (Ubuntu & Debian)
 
 ### Install Node.js
-```bash
-sudo apt install -y curl && \
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && \
-sudo apt install -y nodejs
-```
+See https://gist.github.com/sefinek/fb50041a5f456321d58104bbf3f6e649.
 
 ### Install Git
-```bash
-sudo add-apt-repository -y ppa:git-core/ppa && \
-sudo apt update && sudo apt install -y git
-```
+See https://gist.github.com/sefinek/1de50073ffbbae82fc901506304f0ada.
 
 ### Clone & Set up
 ```bash
@@ -63,10 +56,20 @@ pm2 save
 pm2 logs suricata-abuseipdb
 ```
 
-### 📄 Example Reports
+### 📄 Example Reports & screenshots
 ```text
-
+Suricata (signature 2100498, severity: 2): GPL ATTACK_RESPONSE id check returned root]
 ```
+
+```text
+Suricata (signature 2029346, severity: 1): ET MALWARE Possible Winnti DNS Lookup]
+```
+
+```text
+Suricata (signature 2022048, severity: 1): ET MALWARE Cryptowall .onion Proxy Domain]
+```
+
+![Suricata-to-AbuseIPDB Integration with Discord Webhooks](.github/screenshots/Discord_KtHtj4GLvREb.png)
 
 
 ## 🤝 Development
