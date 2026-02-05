@@ -144,8 +144,8 @@ const processLogLine = async (line, test = false) => {
 	if (test) return data;
 
 	// Report
-	if (isIPReportedRecently(srcIp)) {
-		const lastReportedTime = reportedIPs.get(srcIp);
+	if (isIPReportedRecently(ipToReport)) {
+		const lastReportedTime = reportedIPs.get(ipToReport);
 		const elapsedTime = Math.floor(Date.now() / 1000 - lastReportedTime);
 		const days = Math.floor(elapsedTime / 86400);
 		const hours = Math.floor((elapsedTime % 86400) / 3600);
@@ -158,13 +158,13 @@ const processLogLine = async (line, test = false) => {
 			(seconds || (!days && !hours && !minutes)) && `${seconds}s`,
 		].filter(Boolean).join(' ');
 
-		if (EXTENDED_LOGS) logger.info(`${srcIp} was last reported on ${new Date(lastReportedTime * 1000).toLocaleString()} (${timeAgo} ago)`);
+		if (EXTENDED_LOGS) logger.info(`${ipToReport} was last reported on ${new Date(lastReportedTime * 1000).toLocaleString()} (${timeAgo} ago)`);
 		return;
 	}
 
 	const comment = config.REPORT_COMMENT(data, line);
 	if (await reportIp(data, undefined, comment)) {
-		markIPAsReported(srcIp);
+		markIPAsReported(ipToReport);
 		await saveReportedIPs();
 	}
 };
