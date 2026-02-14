@@ -1,9 +1,15 @@
 # 🛡️ Suricata AbuseIPDB Reporter
-An integration tool designed to analyze Suricata logs and report IP addresses to the [AbuseIPDB](https://www.abuseipdb.com) database.  
+[![Version](https://img.shields.io/github/package-json/v/sefinek/Suricata-To-AbuseIPDB?label=version)](https://github.com/sefinek/Suricata-To-AbuseIPDB)
+[![License: GPL v3](https://img.shields.io/github/license/sefinek/Suricata-To-AbuseIPDB)](https://www.gnu.org/licenses/gpl-3.0)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-339933?logo=node.js&logoColor=white)](https://nodejs.org)
+[![Last Commit](https://img.shields.io/github/last-commit/sefinek/Suricata-To-AbuseIPDB?label=last%20commit)](https://github.com/sefinek/Suricata-To-AbuseIPDB/commits)
+[![Stars](https://img.shields.io/github/stars/sefinek/Suricata-To-AbuseIPDB)](https://github.com/sefinek/Suricata-To-AbuseIPDB/stargazers)
+
+An integration tool designed to analyze Suricata logs and report IP addresses to the [AbuseIPDB](https://www.abuseipdb.com) database.
 To prevent excessive reporting of the same IP address within a short time period, the tool uses a temporary cache file to track previously reported IP addresses.
 
 ⭐ If you like this repository or find it useful, I'd greatly appreciate it if you could give it a star. Many thanks!  
-☁️ Also, check this out: [sefinek/Cloudflare-WAF-To-AbuseIPDB](https://github.com/sefinek/Cloudflare-WAF-To-AbuseIPDB)
+☁️ Also, check this out: [sefinek/Suricata-To-AbuseIPDB](https://github.com/sefinek/Suricata-To-AbuseIPDB)
 
 > [!IMPORTANT]
 > - If you'd like to make changes to any files in this repository, please start by creating a [public fork](https://github.com/sefinek/Suricata-To-AbuseIPDB/fork).
