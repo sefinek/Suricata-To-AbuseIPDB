@@ -69,7 +69,7 @@ Suricata (signature 2029346, severity: 1): ET MALWARE Possible Winnti DNS Lookup
 Suricata (signature 2022048, severity: 1): ET MALWARE Cryptowall .onion Proxy Domain]
 ```
 
-![Suricata-to-AbuseIPDB Integration with Discord Webhooks](.github/screenshots/Discord_KtHtj4GLvREb.png)
+![Suricata-to-AbuseIPDB Integration with Discord Webhooks](.github/screenshots/Discord_SwTXGQrHp1l5.png)
 
 
 ## 🤝 Development
