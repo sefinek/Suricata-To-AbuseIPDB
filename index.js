@@ -13,6 +13,7 @@ const ABUSE_STATE = require('./scripts/services/state.js');
 const { refreshServerIPs, getServerIPs } = require('./scripts/services/ipFetcher.js');
 const { repoSlug, repoUrl } = require('./scripts/repo.js');
 const isSpecialPurposeIP = require('./scripts/isSpecialPurposeIP.js');
+const { initWhitelist, isWhitelisted } = require('./scripts/services/whitelist.js');
 const ignoredSignatures = require('./scripts/suricata/ignoredSignatures.js');
 const logger = require('./scripts/logger.js');
 const { SURICATA_EVE_FILE, SERVER_ID, EXTENDED_LOGS, MIN_ALERT_SEVERITY, ALLOWED_VERDICT_ACTIONS, AUTO_UPDATE_ENABLED, AUTO_UPDATE_SCHEDULE, DISCORD_WEBHOOK_ENABLED, DISCORD_WEBHOOK_URL, DISCORD_ALERT_SEVERITY_THRESHOLD } = config.MAIN;
@@ -130,13 +131,18 @@ const processLogLine = async (line, test = false) => {
 
 	const destIp = json.dest_ip;
 	let ipToReport = srcIp;
-	const srcIsLocal = ips.includes(srcIp) || isSpecialPurposeIP(srcIp);
-	const destIsLocal = ips.includes(destIp) || isSpecialPurposeIP(destIp);
+	const srcIsLocal = ips.includes(srcIp) || isSpecialPurposeIP(srcIp).is;
+	const destIsLocal = ips.includes(destIp) || isSpecialPurposeIP(destIp).is;
 	if (srcIsLocal && destIsLocal) {
 		if (EXTENDED_LOGS) logger.info(`Both SRC=${srcIp} and DEST=${destIp} are local/special, ignoring alert`);
 		return;
 	}
 	if (srcIsLocal) ipToReport = destIp;
+
+	if (isWhitelisted(ipToReport)) {
+		if (EXTENDED_LOGS) logger.info(`Ignoring whitelisted IP address: SRC=${srcIp} DEST=${destIp} REPORT=${ipToReport}`);
+		return;
+	}
 
 	// Process
 	const severity = json.alert.severity;
@@ -196,6 +202,9 @@ const processLogLine = async (line, test = false) => {
 
 	// Fetch IPs
 	await refreshServerIPs();
+
+	// Whitelist
+	initWhitelist();
 
 	// Load cache
 	await loadReportedIPs();
