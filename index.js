@@ -1,12 +1,12 @@
 //   Copyright 2025-2026 © by Sefinek. All Rights Reserved.
 //                   https://sefinek.net
 
-const fs = require('node:fs');
-const TailFile = require('@logdna/tail-file');
-const split2 = require('split2');
 const { parseTimestamp } = require('ufw-log-parser');
+const config = require('./config.js');
+require('./scripts/validations/index.js')(config.MAIN);
 const banner = require('./scripts/banners/suricata.js');
 const { axiosService } = require('./scripts/services/axios.js');
+const tailFile = require('./scripts/services/tailFile.js');
 const { saveBufferToFile, loadBufferFromFile, sendBulkReport, BULK_REPORT_BUFFER } = require('./scripts/services/bulk.js');
 const { reportedIPs, loadReportedIPs, saveReportedIPs, isIPReportedRecently, markIPAsReported } = require('./scripts/services/cache.js');
 const ABUSE_STATE = require('./scripts/services/state.js');
@@ -15,8 +15,7 @@ const { repoSlug, repoUrl } = require('./scripts/repo.js');
 const isSpecialPurposeIP = require('./scripts/isSpecialPurposeIP.js');
 const ignoredSignatures = require('./scripts/suricata/ignoredSignatures.js');
 const logger = require('./scripts/logger.js');
-const config = require('./config.js');
-const { SURICATA_EVE_FILE, SERVER_ID, EXTENDED_LOGS, MIN_ALERT_SEVERITY, AUTO_UPDATE_ENABLED, AUTO_UPDATE_SCHEDULE, DISCORD_WEBHOOK_ENABLED, DISCORD_WEBHOOK_URL, DISCORD_ALERT_SEVERITY_THRESHOLD } = config.MAIN;
+const { SURICATA_EVE_FILE, SERVER_ID, EXTENDED_LOGS, MIN_ALERT_SEVERITY, ALLOWED_VERDICT_ACTIONS, AUTO_UPDATE_ENABLED, AUTO_UPDATE_SCHEDULE, DISCORD_WEBHOOK_ENABLED, DISCORD_WEBHOOK_URL, DISCORD_ALERT_SEVERITY_THRESHOLD } = config.MAIN;
 
 const RATE_LIMIT_LOG_INTERVAL = 10 * 60 * 1000;
 const BUFFER_STATS_INTERVAL = 5 * 60 * 1000;
@@ -115,6 +114,13 @@ const processLogLine = async (line, test = false) => {
 		return;
 	}
 
+	// Filter by verdict action (alert/pass/drop)
+	const verdictAction = json.verdict?.action;
+	if (verdictAction && !ALLOWED_VERDICT_ACTIONS.includes(verdictAction)) {
+		if (EXTENDED_LOGS) logger.info(`Verdict action '${verdictAction}' is not in ALLOWED_VERDICT_ACTIONS, skipping`);
+		return;
+	}
+
 	const srcIp = json.src_ip;
 	if (!srcIp) return;
 
@@ -201,22 +207,8 @@ const processLogLine = async (line, test = false) => {
 		await sendBulkReport();
 	}
 
-	// Check SURICATA_EVE_FILE
-	if (!fs.existsSync(SURICATA_EVE_FILE)) {
-		logger.error(`Log file ${SURICATA_EVE_FILE} does not exist`);
-		return;
-	}
-
-	// Watch
-	const tail = new TailFile(SURICATA_EVE_FILE);
-	tail
-		.on('tail_error', err => logger.error(err))
-		.start()
-		.catch(err => logger.error(err));
-
-	tail
-		.pipe(split2())
-		.on('data', processLogLine);
+	// Tail file
+	await tailFile(SURICATA_EVE_FILE, processLogLine);
 
 	// Summaries
 	if (DISCORD_WEBHOOK_ENABLED && DISCORD_WEBHOOK_URL) await require('./scripts/services/summaries.js')();
