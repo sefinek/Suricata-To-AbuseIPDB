@@ -177,7 +177,7 @@ const createReportPolicy = () => {
 		isHomeNet: homeNet.contains,
 		getServerIPs,
 		isWhitelisted,
-		isIgnored: ignoredSignatures.isIgnored,
+		getIgnoredReason: ignoredSignatures.getDescription,
 	});
 };
 
