@@ -4,8 +4,7 @@ exports.MAIN = {
 	SURICATA_EVE_FILE: '/var/log/suricata/eve.json',
 	SURICATA_CONFIG_FILE: '/etc/suricata/suricata.yaml', // HOME_NET is read from this file. The user running this script needs read access (e.g. membership in the 'suricata' group).
 	EXTENDED_LOGS: false, // true to display additional details in the logs.
-	REPORT_MODE: 'review', // 'review' only logs alerts that would be reported, 'report' sends them to AbuseIPDB.
-	REPORT_RULES: [], // Signatures to report: { signatureId, offender: 'src' or 'dest', flags: ['PORT_SCAN', ...] }. Flags are listed in scripts/flags.js. See README.
+	REPORT_RULES: [], // Signatures to report: { signatureId, offender: 'src' or 'dest', flags: ['PORT_SCAN', ...] }. Add review: true to only log matches while testing a rule. See README.
 	MIN_ALERT_SEVERITY: 2, // Reports alerts with severity <= this value. Lower number = higher priority in Suricata.
 	USE_BUILT_IN_IGNORED_SIGNATURES: true, // Enable built-in signature blacklist (Discord, Steam, etc.). See: scripts/suricata/ignoredSignatures.js
 	IGNORED_SIGNATURES: [], // Custom signature IDs to ignore, merged with built-in list if enabled. Example: [2018918, 2400034]

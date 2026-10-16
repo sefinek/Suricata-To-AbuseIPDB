@@ -69,13 +69,13 @@ pm2 logs suricata-abuseipdb
 Only alerts with a signature listed in `REPORT_RULES` are reported. Alert severity alone is not proof that the other side attacked you, so each signature has to be reviewed and added explicitly.
 
 ```js
-REPORT_MODE: 'review',
 REPORT_RULES: [
 	{ signatureId: 1234567, offender: 'src', flags: ['PORT_SCAN'] },
+	{ signatureId: 7654321, offender: 'src', flags: ['BRUTE_FORCE', 'SSH'], review: true },
 ],
 ```
 
-- `review` only logs alerts that would be reported. Use it to verify your rules, then switch to `report`.
+- `review: true` only logs matches as `[Review] Would report ...` without sending anything. Use it to verify a new rule on live traffic, then remove it.
 - `offender: 'src'` reports an external source that targeted your network. `'dest'` reports an external destination contacted from your network (use it only for signatures that reliably identify a malicious host).
 - `flags` are abuse types from [`scripts/flags.js`](https://github.com/sefinek/IPDB-Integration-Scripts/blob/main/flags.js), mapped to the categories of the target service.
 - `HOME_NET` is read from `SURICATA_CONFIG_FILE` (`/etc/suricata/suricata.yaml` by default). The user running the script needs read access to it, e.g. by being a member of the `suricata` group: `sudo usermod -aG suricata $USER`.

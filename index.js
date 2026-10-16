@@ -30,29 +30,10 @@ const nextRateLimitReset = () => {
 };
 
 let LAST_RATELIMIT_LOG = 0, RATELIMIT_RESET = nextRateLimitReset();
-let bulkUpload = null, rateLimitTimer = null, tail = null, shuttingDown = false;
+let policy = null, processor = null, bulkUpload = null, rateLimitTimer = null, tail = null, shuttingDown = false;
 
 // Includes the chain of causes, e.g. "Cannot read /etc/suricata/suricata.yaml... (EACCES: permission denied, ...)"
 const describeError = err => (err.cause ? `${err.message} (${describeError(err.cause)})` : err.message);
-
-const createReportPolicy = () => {
-	try {
-		const homeNet = loadHomeNet(SURICATA_CONFIG_FILE);
-		logger.info(`Loaded HOME_NET from ${SURICATA_CONFIG_FILE}: ${homeNet.networks.join(', ')}`);
-
-		return createPolicy(config.MAIN, {
-			isHomeNet: homeNet.contains,
-			getServerIPs,
-			isWhitelisted,
-			isIgnored: ignoredSignatures.isIgnored,
-		});
-	} catch (err) {
-		logger.error(describeError(err));
-		process.exit(1);
-	}
-};
-
-const policy = createReportPolicy();
 
 const buildComment = data => {
 	const comment = truncateComment(config.REPORT_COMMENT(data, JSON.stringify(data.evidence)));
@@ -80,18 +61,16 @@ const queueForBulk = async (data, comment) => {
 	return 'queued';
 };
 
-// Buffered entries are re-evaluated, because the policy, whitelist or server IPs may have changed since they were queued
+// Buffered entries are re-evaluated, because the rules, whitelist or server IPs may have changed since they were queued
 const isBufferedEntryValid = (ip, entry) => {
 	if (isIPReportedRecently(ip)) return false;
 
 	const current = policy.evaluate(entry.context);
-	return current?.srcIp === ip && current.categories === entry.categories;
+	return current?.srcIp === ip && !current.review && current.categories === entry.categories;
 };
 
 // sendBulkReport() shares an upload in progress, the promise is kept only to await it on shutdown
 const flushBulk = () => {
-	if (policy.mode !== 'report') return Promise.resolve();
-
 	bulkUpload = sendBulkReport({ validateEntry: isBufferedEntryValid });
 	return bulkUpload;
 };
@@ -162,7 +141,26 @@ const reportIp = async data => {
 	return 'reported';
 };
 
-const processor = createProcessor({
+const createReportPolicy = () => {
+	const homeNet = loadHomeNet(SURICATA_CONFIG_FILE);
+	logger.info(`Loaded HOME_NET from ${SURICATA_CONFIG_FILE}: ${homeNet.networks.join(', ')}`);
+
+	const reportPolicy = createPolicy(config.MAIN, {
+		isHomeNet: homeNet.contains,
+		getServerIPs,
+		isWhitelisted,
+		isIgnored: ignoredSignatures.isIgnored,
+	});
+
+	const { report, review } = reportPolicy.ruleCount;
+	logger.info(report || review
+		? `Loaded REPORT_RULES: ${report} reporting, ${review} in review (logged only)`
+		: 'REPORT_RULES is empty, no alerts will be reported');
+
+	return reportPolicy;
+};
+
+const createAlertProcessor = () => createProcessor({
 	policy,
 	report: reportIp,
 	isReportedRecently: isIPReportedRecently,
@@ -189,23 +187,24 @@ const start = async () => {
 	// Whitelist
 	initWhitelist();
 
+	// Report rules
+	policy = createReportPolicy();
+	processor = createAlertProcessor();
+
 	// Load cache
 	await loadReportedIPs();
 
 	// Bulk
 	await loadBufferFromFile();
-	if (policy.mode === 'report') {
-		if (BULK_REPORT_BUFFER.size > 0) logger.info(`Found ${BULK_REPORT_BUFFER.size} IPs in buffer after restart. Sending bulk report...`);
+	if (BULK_REPORT_BUFFER.size > 0) {
+		logger.info(`Found ${BULK_REPORT_BUFFER.size} IPs in buffer after restart. Sending bulk report...`);
 		await flushBulk();
-
-		rateLimitTimer = setInterval(() => {
-			checkRateLimit().catch(err => logger.error(`Rate limit check failed: ${err.message}`));
-		}, RATE_LIMIT_CHECK_INTERVAL);
-		rateLimitTimer.unref();
-	} else {
-		logger.warn('REPORT_MODE is set to \'review\'. Eligible alerts will be logged, but not reported.');
-		if (BULK_REPORT_BUFFER.size > 0) logger.info(`${BULK_REPORT_BUFFER.size} IPs in the bulk buffer will be sent after switching to 'report' mode`);
 	}
+
+	rateLimitTimer = setInterval(() => {
+		checkRateLimit().catch(err => logger.error(`Rate limit check failed: ${err.message}`));
+	}, RATE_LIMIT_CHECK_INTERVAL);
+	rateLimitTimer.unref();
 
 	// Tail file
 	tail = await tailFile(SURICATA_EVE_FILE, processor.processLine);
@@ -215,8 +214,8 @@ const start = async () => {
 	if (DISCORD_WEBHOOK_ENABLED && DISCORD_WEBHOOK_URL) await require('./scripts/services/summaries.js')();
 
 	// Ready
-	await logger.webhook(`[${repoSlug}](${repoUrl}) was successfully started in ${policy.mode} mode!`, 0x59D267);
-	logger.success(`Ready! Now monitoring (${policy.mode} mode): ${SURICATA_EVE_FILE}`);
+	await logger.webhook(`[${repoSlug}](${repoUrl}) was successfully started!`, 0x59D267);
+	logger.success(`Ready! Now monitoring: ${SURICATA_EVE_FILE}`);
 	process.send?.('ready');
 };
 
@@ -229,7 +228,7 @@ const gracefulShutdown = async signal => {
 
 	try {
 		await tail?.quit();
-		await processor.stop();
+		await processor?.stop();
 		await bulkUpload;
 		await saveBufferToFile();
 		await saveReportedIPs();
@@ -241,14 +240,10 @@ const gracefulShutdown = async signal => {
 	process.exit(0);
 };
 
-if (require.main === module) {
-	start().catch(err => {
-		logger.error(`Startup failed: ${err.stack}`);
-		process.exit(1);
-	});
+start().catch(err => {
+	logger.error(`Startup failed: ${err.cause ? describeError(err) : err.stack}`);
+	process.exit(1);
+});
 
-	process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-	process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-}
-
-module.exports = processor.processLine;
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
