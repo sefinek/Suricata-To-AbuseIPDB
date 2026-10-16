@@ -65,35 +65,27 @@ pm2 logs suricata-abuseipdb
 ```
 
 
-## ⚙️ Reporting Rules
-Only alerts with a signature listed in `REPORT_RULES` are reported. Alert severity alone is not proof that the other side attacked you, so each signature has to be reviewed and added explicitly.
+## ⚙️ What Gets Reported
+Every alert with severity <= `MIN_ALERT_SEVERITY` is reported, unless its signature is ignored. The reported IP is always the external host that **opened the connection** to your network.
 
-```js
-REPORT_RULES: [
-	{ signatureId: 1234567, offender: 'src', flags: ['PORT_SCAN'] },
-	{ signatureId: 7654321, offender: 'src', flags: ['BRUTE_FORCE', 'SSH'], review: true },
-],
-```
-
-- `review: true` only logs matches as `[Review] Would report ...` without sending anything. Use it to verify a new rule on live traffic, then remove it.
-- `offender: 'src'` reports an external source that targeted your network. `'dest'` reports an external destination contacted from your network (use it only for signatures that reliably identify a malicious host).
-- `flags` are abuse types from [`scripts/flags.js`](https://github.com/sefinek/IPDB-Integration-Scripts/blob/main/flags.js), mapped to the categories of the target service.
+- Hosts contacted from your network (DNS resolvers, CDNs, P2P peers, game servers) are never reported, even if the alert was triggered by their reply.
 - `HOME_NET` is read from `SURICATA_CONFIG_FILE` (`/etc/suricata/suricata.yaml` by default). The user running the script needs read access to it, e.g. by being a member of the `suricata` group: `sudo usermod -aG suricata $USER`.
-- An alert is reported only if the offender is outside `HOME_NET` and the other side is inside it.
-- With `offender: 'src'`, the offender must have initiated the flow. Replies to connections opened from your network (e.g. P2P, games, CDNs) are never reported.
+- Ignored signatures: the built-in list ([`scripts/suricata/ignoredSignatures.js`](https://github.com/sefinek/IPDB-Integration-Scripts/blob/main/suricata/ignoredSignatures.js), can be disabled with `USE_BUILT_IN_IGNORED_SIGNATURES`) and your own `IGNORED_SIGNATURES`.
+- The category is based on the alert classification: scans as Port Scan, web attacks as Web App Attack, DoS as DDoS Attack, everything else as Hacking.
+- Set `EXTENDED_LOGS` to `true` to see why an alert was not reported.
 
 
 ### 📄 Example Reports & screenshots
 ```text
-Suricata (signature 2100498, severity: 2): GPL ATTACK_RESPONSE id check returned root]
+Suricata (signature 2100498, severity: 2): GPL ATTACK_RESPONSE id check returned root
 ```
 
 ```text
-Suricata (signature 2029346, severity: 1): ET MALWARE Possible Winnti DNS Lookup]
+Suricata (signature 2029346, severity: 1): ET MALWARE Possible Winnti DNS Lookup
 ```
 
 ```text
-Suricata (signature 2022048, severity: 1): ET MALWARE Cryptowall .onion Proxy Domain]
+Suricata (signature 2022048, severity: 1): ET MALWARE Cryptowall .onion Proxy Domain
 ```
 
 ![Suricata-to-AbuseIPDB Integration with Discord Webhooks](.github/screenshots/Discord_SwTXGQrHp1l5.png)

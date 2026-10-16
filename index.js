@@ -61,12 +61,12 @@ const queueForBulk = async (data, comment) => {
 	return 'queued';
 };
 
-// Buffered entries are re-evaluated, because the rules, whitelist or server IPs may have changed since they were queued
+// Buffered entries are re-evaluated, because the ignored signatures, whitelist or server IPs may have changed since they were queued
 const isBufferedEntryValid = (ip, entry) => {
 	if (isIPReportedRecently(ip)) return false;
 
 	const current = policy.evaluate(entry.context);
-	return current?.srcIp === ip && !current.review && current.categories === entry.categories;
+	return current?.srcIp === ip && current.categories === entry.categories;
 };
 
 // sendBulkReport() shares an upload in progress, the promise is kept only to await it on shutdown
@@ -145,19 +145,12 @@ const createReportPolicy = () => {
 	const homeNet = loadHomeNet(SURICATA_CONFIG_FILE);
 	logger.info(`Loaded HOME_NET from ${SURICATA_CONFIG_FILE}: ${homeNet.networks.join(', ')}`);
 
-	const reportPolicy = createPolicy(config.MAIN, {
+	return createPolicy(config.MAIN, {
 		isHomeNet: homeNet.contains,
 		getServerIPs,
 		isWhitelisted,
 		isIgnored: ignoredSignatures.isIgnored,
 	});
-
-	const { report, review } = reportPolicy.ruleCount;
-	logger.info(report || review
-		? `Loaded REPORT_RULES: ${report} reporting, ${review} in review (logged only)`
-		: 'REPORT_RULES is empty, no alerts will be reported');
-
-	return reportPolicy;
 };
 
 const createAlertProcessor = () => createProcessor({
@@ -170,7 +163,6 @@ const createAlertProcessor = () => createProcessor({
 		for (const data of entries) addToBuffer(data, buildComment(data));
 		await saveBufferToFile();
 	},
-	logReview: ({ srcIp, dpt, proto, id, severity, categories }) => logger.info(`[Review] Would report ${srcIp} [${dpt}/${proto}]; Signature: ${id}; Severity: ${severity}; Categories: ${categories}`),
 	logSkip: EXTENDED_LOGS ? reason => logger.info(reason) : undefined,
 	logger,
 });
@@ -187,7 +179,7 @@ const start = async () => {
 	// Whitelist
 	initWhitelist();
 
-	// Report rules
+	// Report policy
 	policy = createReportPolicy();
 	processor = createAlertProcessor();
 
