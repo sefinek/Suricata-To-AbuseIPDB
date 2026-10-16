@@ -69,7 +69,7 @@ pm2 logs suricata-abuseipdb
 Every alert with severity <= `MIN_ALERT_SEVERITY` is reported, unless its signature is ignored. The reported IP is always the external host that **opened the connection** to your network.
 
 - Hosts contacted from your network (DNS resolvers, CDNs, P2P peers, game servers) are never reported, even if the alert was triggered by their reply.
-- `HOME_NET` is read from `SURICATA_CONFIG_FILE` (`/etc/suricata/suricata.yaml` by default). The user running the script needs read access to it, e.g. by being a member of the `suricata` group: `sudo usermod -aG suricata $USER`.
+- `HOME_NET` is read from `SURICATA_CONFIG_FILE` (`/etc/suricata/suricata.yaml` by default). The user running the script needs read access to it, e.g. by being a member of the `suricata` group: `sudo usermod -aG suricata $USER`. If that is not possible, list your networks in `HOME_NET` in `config.js` instead.
 - Ignored signatures: the built-in list ([`scripts/suricata/ignoredSignatures.js`](https://github.com/sefinek/IPDB-Integration-Scripts/blob/main/suricata/ignoredSignatures.js), can be disabled with `USE_BUILT_IN_IGNORED_SIGNATURES`) and your own `IGNORED_SIGNATURES`.
 - The category is based on the alert classification: scans as Port Scan, web attacks as Web App Attack, DoS as DDoS Attack, everything else as Hacking.
 - Set `EXTENDED_LOGS` to `true` to see why an alert was not reported.

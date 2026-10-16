@@ -14,11 +14,11 @@ const { refreshServerIPs, getServerIPs } = require('./scripts/services/ipFetcher
 const { repoSlug, repoUrl } = require('./scripts/repo.js');
 const { initWhitelist, isWhitelisted } = require('./scripts/services/whitelist.js');
 const ignoredSignatures = require('./scripts/suricata/ignoredSignatures.js');
-const { loadHomeNet } = require('./scripts/suricata/homeNet.js');
+const { loadHomeNet, parseHomeNet } = require('./scripts/suricata/homeNet.js');
 const createPolicy = require('./scripts/suricata/reportPolicy.js');
 const createProcessor = require('./scripts/suricata/createProcessor.js');
 const logger = require('./scripts/logger.js');
-const { SURICATA_EVE_FILE, SURICATA_CONFIG_FILE, EXTENDED_LOGS, DISCORD_WEBHOOK_ENABLED, DISCORD_WEBHOOK_URL, DISCORD_ALERT_SEVERITY_THRESHOLD } = config.MAIN;
+const { SURICATA_EVE_FILE, SURICATA_CONFIG_FILE, HOME_NET, EXTENDED_LOGS, DISCORD_WEBHOOK_ENABLED, DISCORD_WEBHOOK_URL, DISCORD_ALERT_SEVERITY_THRESHOLD } = config.MAIN;
 
 const RATE_LIMIT_LOG_INTERVAL = 10 * 60 * 1000;
 const RATE_LIMIT_CHECK_INTERVAL = 60 * 1000;
@@ -141,9 +141,21 @@ const reportIp = async data => {
 	return 'reported';
 };
 
+const loadLocalNetworks = () => {
+	const source = HOME_NET.length ? 'config.js' : SURICATA_CONFIG_FILE;
+
+	try {
+		const homeNet = HOME_NET.length ? parseHomeNet(HOME_NET.join(',')) : loadHomeNet(SURICATA_CONFIG_FILE);
+		logger.info(`Loaded HOME_NET from ${source}: ${homeNet.networks.join(', ')}`);
+		return homeNet;
+	} catch (err) {
+		logger.error(describeError(err));
+		process.exit(1);
+	}
+};
+
 const createReportPolicy = () => {
-	const homeNet = loadHomeNet(SURICATA_CONFIG_FILE);
-	logger.info(`Loaded HOME_NET from ${SURICATA_CONFIG_FILE}: ${homeNet.networks.join(', ')}`);
+	const homeNet = loadLocalNetworks();
 
 	return createPolicy(config.MAIN, {
 		isHomeNet: homeNet.contains,
@@ -233,7 +245,7 @@ const gracefulShutdown = async signal => {
 };
 
 start().catch(err => {
-	logger.error(`Startup failed: ${err.cause ? describeError(err) : err.stack}`);
+	logger.error(`Startup failed: ${err.stack}`);
 	process.exit(1);
 });
 
