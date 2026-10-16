@@ -6,7 +6,7 @@ exports.MAIN = {
 	HOME_NET: [], // Fallback used only if SURICATA_CONFIG_FILE cannot be read: your local networks. Example: ['192.168.1.0/24', '2001:db8:1234::/48']
 	EXTENDED_LOGS: false, // true to display additional details in the logs.
 	MIN_ALERT_SEVERITY: 2, // Reports alerts with severity <= this value. Lower number = higher priority in Suricata.
-	USE_BUILT_IN_IGNORED_SIGNATURES: true, // Enable built-in signature blacklist (Discord, Steam, etc.). See: scripts/suricata/ignoredSignatures.js
+	USE_BUILT_IN_IGNORED_SIGNATURES: true, // Enable built-in signature blacklist (Discord, Steam, etc.). See: scripts/integrations/suricata/ignoredSignatures.js
 	IGNORED_SIGNATURES: [], // Custom signature IDs to ignore, merged with built-in list if enabled. Example: [2018918, 2400034]
 	ALLOWED_VERDICT_ACTIONS: ['alert', 'drop'], // Only report events matching these verdict actions. Possible values: 'alert', 'pass', 'drop'. Requires Suricata 6.0+. Must be a non-empty array.
 	CACHE_FILE: './tmp/suricata-abuseipdb-reporter.cache',
