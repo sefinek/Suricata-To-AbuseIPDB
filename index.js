@@ -188,7 +188,14 @@ const createAlertProcessor = () => createProcessor({
 	markReported: markIPAsReported,
 	persistReported: saveReportedIPs,
 	deferPending: async entries => {
-		for (const data of entries) addToBuffer(data, buildComment(data));
+		for (const data of entries) {
+			try {
+				addToBuffer(data, buildComment(data));
+			} catch (err) {
+				logger.error(`Failed to move ${data.srcIp} to the bulk buffer: ${err.message}`);
+			}
+		}
+
 		await saveBufferToFile();
 	},
 	logSkip: EXTENDED_LOGS ? reason => logger.info(reason) : undefined,
