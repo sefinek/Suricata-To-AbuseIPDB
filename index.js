@@ -141,17 +141,33 @@ const reportIp = async data => {
 	return 'reported';
 };
 
-const loadLocalNetworks = () => {
-	const source = HOME_NET.length ? 'config.js' : SURICATA_CONFIG_FILE;
-
+const parseConfigHomeNet = () => {
 	try {
-		const homeNet = HOME_NET.length ? parseHomeNet(HOME_NET.join(',')) : loadHomeNet(SURICATA_CONFIG_FILE);
-		logger.info(`Loaded HOME_NET from ${source}: ${homeNet.networks.join(', ')}`);
-		return homeNet;
+		return parseHomeNet(HOME_NET.join(','));
 	} catch (err) {
-		logger.error(describeError(err));
+		logger.error(`Invalid HOME_NET in config.js: ${describeError(err)}`);
 		process.exit(1);
 	}
+};
+
+// suricata.yaml is the source of truth. HOME_NET from config.js is used only if the file cannot be read or parsed.
+const loadLocalNetworks = () => {
+	let homeNet, source = SURICATA_CONFIG_FILE;
+	try {
+		homeNet = loadHomeNet(SURICATA_CONFIG_FILE);
+	} catch (err) {
+		if (!HOME_NET.length) {
+			logger.error(`${describeError(err)}. Fix the access to the file or set HOME_NET in config.js.`);
+			process.exit(1);
+		}
+
+		logger.warn(`${describeError(err)}. Using HOME_NET from config.js instead.`);
+		homeNet = parseConfigHomeNet();
+		source = 'config.js';
+	}
+
+	logger.info(`Loaded HOME_NET from ${source}: ${homeNet.networks.join(', ')}`);
+	return homeNet;
 };
 
 const createReportPolicy = () => {

@@ -3,7 +3,7 @@ exports.MAIN = {
 	SERVER_ID: null, // Server identifier (e.g., 'hp-terminal', 'pl-cluster', 'de1'). Use 'development' for testing only. 'production' has no effect. Use null to leave it unset.
 	SURICATA_EVE_FILE: '/var/log/suricata/eve.json',
 	SURICATA_CONFIG_FILE: '/etc/suricata/suricata.yaml', // HOME_NET is read from this file. The user running this script needs read access (e.g. membership in the 'suricata' group).
-	HOME_NET: [], // Only if this script cannot read SURICATA_CONFIG_FILE: your local networks, used instead of the file. Example: ['192.168.1.0/24', '2001:db8:1234::/48']
+	HOME_NET: [], // Fallback used only if SURICATA_CONFIG_FILE cannot be read: your local networks. Example: ['192.168.1.0/24', '2001:db8:1234::/48']
 	EXTENDED_LOGS: false, // true to display additional details in the logs.
 	MIN_ALERT_SEVERITY: 2, // Reports alerts with severity <= this value. Lower number = higher priority in Suricata.
 	USE_BUILT_IN_IGNORED_SIGNATURES: true, // Enable built-in signature blacklist (Discord, Steam, etc.). See: scripts/suricata/ignoredSignatures.js
