@@ -2,7 +2,10 @@ exports.MAIN = {
 	/* --------------------------- Server --------------------------- */
 	SERVER_ID: null, // Server identifier (e.g., 'hp-terminal', 'pl-cluster', 'de1'). Use 'development' for testing only. 'production' has no effect. Use null to leave it unset.
 	SURICATA_EVE_FILE: '/var/log/suricata/eve.json',
+	SURICATA_CONFIG_FILE: '/etc/suricata/suricata.yaml', // HOME_NET is read from this file. The user running this script needs read access (e.g. membership in the 'suricata' group).
 	EXTENDED_LOGS: false, // true to display additional details in the logs.
+	REPORT_MODE: 'review', // 'review' only logs alerts that would be reported, 'report' sends them to AbuseIPDB.
+	REPORT_RULES: [], // Signatures to report: { signatureId, offender: 'src' or 'dest', flags: ['PORT_SCAN', ...] }. Flags are listed in scripts/flags.js. See README.
 	MIN_ALERT_SEVERITY: 2, // Reports alerts with severity <= this value. Lower number = higher priority in Suricata.
 	USE_BUILT_IN_IGNORED_SIGNATURES: true, // Enable built-in signature blacklist (Discord, Steam, etc.). See: scripts/suricata/ignoredSignatures.js
 	IGNORED_SIGNATURES: [], // Custom signature IDs to ignore, merged with built-in list if enabled. Example: [2018918, 2400034]
@@ -18,10 +21,6 @@ exports.MAIN = {
 	ABUSEIPDB_API_KEY: '', // https://www.abuseipdb.com/account/api
 	IP_REPORT_COOLDOWN: 4 * 60 * 60 * 1000, // Minimum time between reports of the same IP. Must be >= 15 minutes. Do not set too low values, as it would waste API quota due to daily rate limits.
 
-	/* --------------------------- Automatic Updates --------------------------- */
-	AUTO_UPDATE_ENABLED: false, // Set to true to enable automatic updates via "git pull", false to disable. This option is discouraged due to potential future incompatibilities. Enable it only if you actively monitor the server and want the latest version.
-	AUTO_UPDATE_SCHEDULE: '0 15,17,18,20 * * *', // Cron schedule for automatic updates. Default: every day at 15:00, 17:00, 18:00, 20:00
-
 	/* --------------------------- Discord Webhooks --------------------------- */
 	DISCORD_WEBHOOK_ENABLED: false, // Enables sending Discord webhooks with error reports, execution status, and other events.
 	DISCORD_WEBHOOK_URL: '',
@@ -32,4 +31,4 @@ exports.MAIN = {
 
 // const serverId = this.MAIN.SERVER_ID ? `on ${this.MAIN.SERVER_ID} ` : '';
 exports.REPORT_COMMENT = ({ srcIp, dpt, proto, id, severity, signature, timestamp }, fullLog) =>
-	`Suricata (signature ${id}, severity: ${severity}): ${signature || 'Unknown Signature'}]`;
+	`Suricata (signature ${id}, severity: ${severity}): ${signature || 'Unknown Signature'}`;

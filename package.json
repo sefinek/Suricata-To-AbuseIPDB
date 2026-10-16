@@ -1,6 +1,6 @@
 {
   "name": "suricata-to-abuseipdb",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "homepage": "https://github.com/sefinek/Suricata-To-AbuseIPDB#readme",
   "bugs": {
     "url": "https://github.com/sefinek/Suricata-To-AbuseIPDB/issues"
@@ -16,7 +16,7 @@
   "scripts": {
     "m": "ncu -u && npm install && npm update",
     "pull": "git pull origin main && git submodule update --init",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test \"scripts/test/*.test.js\"",
     "update": "npm run pull && npm ci --omit=dev && pm2 restart suricata-abuseipdb"
   },
   "dependencies": {
@@ -28,9 +28,7 @@
     "form-data": "^4.0.6",
     "ipaddr.js": "^2.5.0",
     "semver": "^7.8.5",
-    "simple-git": "^4.0.2",
-    "split2": "^4.2.0",
-    "ufw-log-parser": "^0.1.4"
+    "split2": "^4.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
