@@ -9,6 +9,7 @@ const tailFile = require('./scripts/services/tailFile.js');
 const { saveBufferToFile, loadBufferFromFile, sendBulkReport, BULK_REPORT_BUFFER } = require('./scripts/services/bulk.js');
 const { loadReportedIPs, saveReportedIPs, isIPReportedRecently, markIPAsReported } = require('./scripts/services/cache.js');
 const ABUSE_STATE = require('./scripts/services/state.js');
+const reportApi = require('./scripts/services/reportApi.js');
 const { truncateComment } = require('./scripts/reporting/comment.js');
 const { refreshServerIPs, getServerIPs } = require('./scripts/services/ipFetcher.js');
 const { repoSlug, repoUrl } = require('./scripts/core/repo.js');
@@ -85,7 +86,8 @@ const startBuffering = () => {
 	ABUSE_STATE.sentBulk = false;
 	LAST_RATELIMIT_LOG = Date.now();
 	RATELIMIT_RESET = nextRateLimitReset();
-	logger.info(`Daily API request limit for specified endpoint reached. Reports will be buffered until \`${RATELIMIT_RESET.toLocaleString()}\`. Bulk report will be sent the following day.`, { discord: true });
+	const plan = reportApi.supportsBulk ? 'Reports will be buffered and sent as a bulk report after the reset' : `${reportApi.name} has no bulk report API, so reports are paused until the reset`;
+	logger.info(`Daily ${reportApi.name} report limit reached. ${plan} (\`${RATELIMIT_RESET.toLocaleString()}\`).`, { discord: true });
 };
 
 const checkRateLimit = async () => {
@@ -95,7 +97,8 @@ const checkRateLimit = async () => {
 	if (now < RATELIMIT_RESET.getTime()) {
 		if (now - LAST_RATELIMIT_LOG >= RATE_LIMIT_LOG_INTERVAL) {
 			const minutesLeft = Math.ceil((RATELIMIT_RESET.getTime() - now) / 60000);
-			logger.info(`Rate limit is still active, collected ${BULK_REPORT_BUFFER.size} IPs. Waiting for reset in ${minutesLeft} minute(s) (${RATELIMIT_RESET.toISOString()})...`);
+			const collected = reportApi.supportsBulk ? `, collected ${BULK_REPORT_BUFFER.size} IPs` : '';
+			logger.info(`Rate limit is still active${collected}. Waiting for reset in ${minutesLeft} minute(s) (${RATELIMIT_RESET.toISOString()})...`);
 			LAST_RATELIMIT_LOG = now;
 		}
 		return;
@@ -107,7 +110,7 @@ const checkRateLimit = async () => {
 	RATELIMIT_RESET = nextRateLimitReset();
 	logger.success(`Rate limit reset. Next reset scheduled at \`${RATELIMIT_RESET.toISOString()}\`.`, { discord: true });
 
-	await flushBulk();
+	if (reportApi.supportsBulk) await flushBulk();
 };
 
 const reportIp = async data => {
@@ -115,6 +118,8 @@ const reportIp = async data => {
 
 	await checkRateLimit();
 	if (BULK_REPORT_BUFFER.has(srcIp)) return 'queued';
+
+	if (ABUSE_STATE.isBuffering && !reportApi.supportsBulk) return 'failed';
 
 	const comment = buildComment(data);
 	if (ABUSE_STATE.isBuffering) return queueForBulk(data, comment);
@@ -124,17 +129,17 @@ const reportIp = async data => {
 		({ data: res } = await axiosService.post('/report', { ip: srcIp, categories, comment }));
 	} catch (err) {
 		const status = err.response?.status;
-		if (status === 429 && JSON.stringify(err.response?.data || {}).includes('Daily rate limit')) {
+		if (reportApi.isDailyLimit(err)) {
 			startBuffering();
-			return queueForBulk(data, comment);
+			return reportApi.supportsBulk ? queueForBulk(data, comment) : 'failed';
 		}
 
-		const failureMsg = `Failed to report ${srcIp} [${dpt}/${proto}]; ${err.response?.data?.errors ? JSON.stringify(err.response.data.errors) : err.message}`;
+		const failureMsg = `Failed to report ${srcIp} [${dpt}/${proto}]; ${reportApi.formatError(err)}`;
 		status === 429 ? logger.info(failureMsg) : logger.error(failureMsg);
 		return 'failed';
 	}
 
-	logger.success(`Reported ${srcIp} [${dpt}/${proto}]; Signature: ${id}; Severity: ${severity}; Categories: ${categories}; Abuse: ${res?.data?.abuseConfidenceScore ?? 'N/A'}%`);
+	logger.success(`Reported ${srcIp} [${dpt}/${proto}]; Signature: ${id}; Severity: ${severity}; Categories: ${categories}; Abuse: ${reportApi.getScore(res) ?? 'N/A'}%`);
 
 	if (typeof DISCORD_ALERT_SEVERITY_THRESHOLD === 'number' && severity <= DISCORD_ALERT_SEVERITY_THRESHOLD) {
 		await logger.webhook(comment, 0, true).catch(err => logger.error(`Failed to send alert webhook: ${err.message}`));
@@ -189,7 +194,8 @@ const createAlertProcessor = () => createProcessor({
 	isReportedRecently: isIPReportedRecently,
 	markReported: markIPAsReported,
 	persistReported: saveReportedIPs,
-	deferPending: async entries => {
+	// Without a bulk API there is nowhere to send them later, so queued alerts are dropped on shutdown
+	deferPending: reportApi.supportsBulk ? async entries => {
 		for (const data of entries) {
 			try {
 				addToBuffer(data, buildComment(data));
@@ -199,7 +205,7 @@ const createAlertProcessor = () => createProcessor({
 		}
 
 		await saveBufferToFile();
-	},
+	} : undefined,
 	logSkip: EXTENDED_LOGS ? reason => logger.info(reason) : undefined,
 	logger,
 });
@@ -224,10 +230,12 @@ const start = async () => {
 	await loadReportedIPs();
 
 	// Bulk
-	await loadBufferFromFile();
-	if (BULK_REPORT_BUFFER.size > 0) {
-		logger.info(`Found ${BULK_REPORT_BUFFER.size} IPs in buffer after restart. Sending bulk report...`);
-		await flushBulk();
+	if (reportApi.supportsBulk) {
+		await loadBufferFromFile();
+		if (BULK_REPORT_BUFFER.size > 0) {
+			logger.info(`Found ${BULK_REPORT_BUFFER.size} IPs in buffer after restart. Sending bulk report...`);
+			await flushBulk();
+		}
 	}
 
 	rateLimitTimer = setInterval(() => {

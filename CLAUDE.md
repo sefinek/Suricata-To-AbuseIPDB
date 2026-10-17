@@ -28,6 +28,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - HOME_NET is read from `SURICATA_CONFIG_FILE` (`suricata.yaml`). `HOME_NET` in `config.js` is only a fallback if the file cannot be read or parsed; if both fail, startup exits.
 - Ignored signatures: built-in list in `scripts/integrations/suricata/ignoredSignatures.js` (toggle `USE_BUILT_IN_IGNORED_SIGNATURES`) plus `IGNORED_SIGNATURES` from the config. Built-in entries must exist in the ET Open ruleset and their description must match the rule `msg`.
 
+## AbuseIPDB vs SniffCat
+
+- `scripts/services/reportApi.js` holds everything that differs between the two report APIs (score field, error format, how the daily quota is signaled, bulk support), selected by repository name like `services/axios.js`. `index.js` must use it instead of hardcoding AbuseIPDB response shapes, so a Suricata-To-SniffCat `index.js` can stay identical.
+- SniffCat has no bulk report API (bulk uploads only work from the website session). With `supportsBulk: false`, reaching the daily limit pauses reporting until the reset instead of buffering.
+- SniffCat returns 429 both for the daily quota ("report limit") and for a per-IP 20-minute limit ("once every N minutes"); only the first one is a daily limit.
+
 ## Duplicate-report safety
 
 - Report endpoints (`axiosService`, `axiosBulk`) are never retried automatically, other clients are. A retry after an ambiguous failure could report the same IP twice.
