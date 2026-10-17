@@ -67,8 +67,8 @@ const queueForBulk = async (data, comment) => {
 const isBufferedEntryValid = (ip, entry) => {
 	if (isIPReportedRecently(ip)) return false;
 
-	const current = policy.evaluate(entry.context);
-	return current?.srcIp === ip && current.categories === entry.categories;
+	// Categories are not compared, so a changed category mapping after an update does not drop buffered reports
+	return policy.evaluate(entry.context)?.srcIp === ip;
 };
 
 // sendBulkReport() shares an upload in progress, the promise is kept only to await it on shutdown

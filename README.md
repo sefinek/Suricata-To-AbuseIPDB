@@ -35,6 +35,7 @@ To prevent excessive reporting of the same IP address within a short time period
     - Script error alerts
     - Daily summaries of reported IPs
 9. **Update Notifications** - The script periodically checks for new versions and notifies you (also via Discord) when an update is available.
+10. **Capture Monitoring** - You get a warning (also via Discord) when Suricata stops receiving packets for 15 minutes, e.g. after a mirror port or capture NIC goes down. Suricata itself keeps running in that case, so it would otherwise go unnoticed.
 
 
 ## 📥 Installation (Ubuntu & Debian)
@@ -71,21 +72,22 @@ Every alert with severity <= `MIN_ALERT_SEVERITY` is reported, unless its signat
 - Hosts contacted from your network (DNS resolvers, CDNs, P2P peers, game servers) are never reported, even if the alert was triggered by their reply.
 - `HOME_NET` is read from `SURICATA_CONFIG_FILE` (`/etc/suricata/suricata.yaml` by default). The user running the script needs read access to it, e.g. by being a member of the `suricata` group: `sudo usermod -aG suricata $USER`. If the file cannot be read, `HOME_NET` from `config.js` is used as a fallback. If it is empty too, the script will not start.
 - Ignored signatures: the built-in list ([`scripts/integrations/suricata/ignoredSignatures.js`](https://github.com/sefinek/IPDB-Integration-Scripts/blob/main/integrations/suricata/ignoredSignatures.js), can be disabled with `USE_BUILT_IN_IGNORED_SIGNATURES`) and your own `IGNORED_SIGNATURES`.
-- The category is based on the alert classification: scans as Port Scan, web attacks as Web App Attack, DoS as DDoS Attack, everything else as Hacking.
+- The main category comes from the alert classification, then from the ruleset category in the signature name (`ET SCAN` as Port Scan, `ET DOS` as DDoS Attack, `ET WEB_SERVER` as Web App Attack, `ET COMPROMISED` as Exploited Host), and Hacking otherwise. The attacked service (SSH, RDP, Telnet, SMB, Redis, MongoDB) is added based on the protocol detected by Suricata or the local port, and attack techniques named in the signature (SQL Injection, Path Traversal, Command Injection, Brute-Force) add further detail.
+- Suricata must see inbound connections. A sensor that only sees traffic behind NAT, with no ports forwarded, will see mostly outgoing traffic and report almost nothing.
 - Set `EXTENDED_LOGS` to `true` to see why an alert was not reported.
 
 
 ### 📄 Example Reports & screenshots
 ```text
-Suricata (signature 2100498, severity: 2): GPL ATTACK_RESPONSE id check returned root
+Suricata (signature 2001219, severity: 2): ET SCAN Potential SSH Scan
 ```
 
 ```text
-Suricata (signature 2029346, severity: 1): ET MALWARE Possible Winnti DNS Lookup
+Suricata (signature 2010937, severity: 2): ET SCAN Suspicious inbound to mySQL port 3306
 ```
 
 ```text
-Suricata (signature 2022048, severity: 1): ET MALWARE Cryptowall .onion Proxy Domain
+Suricata (signature 2023753, severity: 2): ET SCAN MS Terminal Server Traffic on Non-standard Port
 ```
 
 ![Suricata-to-AbuseIPDB Integration with Discord Webhooks](.github/screenshots/Discord_SwTXGQrHp1l5.png)
