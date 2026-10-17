@@ -17,6 +17,7 @@ const ignoredSignatures = require('./scripts/integrations/suricata/ignoredSignat
 const { loadHomeNet, parseHomeNet } = require('./scripts/integrations/suricata/homeNet.js');
 const createPolicy = require('./scripts/integrations/suricata/reportPolicy.js');
 const createProcessor = require('./scripts/integrations/suricata/createProcessor.js');
+const createCaptureMonitor = require('./scripts/integrations/suricata/captureMonitor.js');
 const logger = require('./scripts/core/logger.js');
 const { SURICATA_EVE_FILE, SURICATA_CONFIG_FILE, HOME_NET, EXTENDED_LOGS, DISCORD_WEBHOOK_ENABLED, DISCORD_WEBHOOK_URL, DISCORD_ALERT_SEVERITY_THRESHOLD } = config.MAIN;
 
@@ -31,6 +32,7 @@ const nextRateLimitReset = () => {
 
 let LAST_RATELIMIT_LOG = 0, RATELIMIT_RESET = nextRateLimitReset();
 let policy = null, processor = null, bulkUpload = null, rateLimitTimer = null, tail = null, shuttingDown = false;
+const captureMonitor = createCaptureMonitor({ logger });
 
 // Includes the chain of causes, e.g. "Cannot read /etc/suricata/suricata.yaml... (EACCES: permission denied, ...)"
 const describeError = err => (err.cause ? `${err.message} (${describeError(err.cause)})` : err.message);
@@ -234,8 +236,12 @@ const start = async () => {
 	rateLimitTimer.unref();
 
 	// Tail file
-	tail = await tailFile(SURICATA_EVE_FILE, processor.processLine);
+	tail = await tailFile(SURICATA_EVE_FILE, line => {
+		captureMonitor.onLine(line);
+		return processor.processLine(line);
+	});
 	if (!tail) throw new Error(`Could not start monitoring ${SURICATA_EVE_FILE}`);
+	captureMonitor.start();
 
 	// Summaries
 	if (DISCORD_WEBHOOK_ENABLED && DISCORD_WEBHOOK_URL) await require('./scripts/services/summaries.js')();
@@ -252,6 +258,7 @@ const gracefulShutdown = async signal => {
 
 	logger.info(`Received ${signal}, flushing pending reports and writes...`);
 	clearInterval(rateLimitTimer);
+	captureMonitor.stop();
 
 	try {
 		await tail?.quit();
